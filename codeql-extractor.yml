@@ -1,0 +1,16 @@
+name: "solidity"
+display_name: "Solidity"
+version: 0.0.1
+column_kind: "utf8"
+build_modes:
+  - none
+github_api_languages:
+  - Solidity
+scc_languages:
+  - Solidity
+file_types:
+  - name: solidity
+    display_name: Solidity files
+    extensions:
+      - .sol
+legacy_qltest_extraction: true
