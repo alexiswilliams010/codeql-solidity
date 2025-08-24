@@ -15,7 +15,7 @@ pub fn run(_: Options) -> std::io::Result<()> {
 
     autobuilder::Autobuilder::new("solidity", PathBuf::from(database))
         .include_extensions(&[".sol"])
-        .include_globs(&["**/*.sol"])
+        .include_globs(&["*.sol"])
         .exclude_globs(&["**/.git"])
         .size_limit("5m")
         .run()

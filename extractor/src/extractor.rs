@@ -39,7 +39,7 @@ pub fn run(options: Options) -> std::io::Result<()> {
             node_types: tree_sitter_solidity::NODE_TYPES,
             file_globs: vec!["*.sol".into()],
         }],
-        trap_compression: trap::Compression::from_env("CODEQL_KALEIDOSCOPE_TRAP_COMPRESSION"),
+        trap_compression: trap::Compression::from_env("CODEQL_SOLIDITY_TRAP_COMPRESSION"),
     };
     extractor.run()
 }

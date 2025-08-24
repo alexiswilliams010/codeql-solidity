@@ -20,7 +20,6 @@ codeql query format -i ql/lib/codeql/solidity/ast/internal/TreeSitter.qll
 
 rm -rf extractor-pack
 mkdir -p extractor-pack
-cp -r codeql-extractor.yml downgrades tools ql/lib/solidity.dbscheme ql/lib/solidity.dbscheme.stats extractor-pack/
+cp -r codeql-extractor.yml tools ql/lib/solidity.dbscheme ql/lib/solidity.dbscheme.stats extractor-pack/
 mkdir -p extractor-pack/tools/${platform}
 cp "$BIN_DIR/solidity-extractor" extractor-pack/tools/${platform}/extractor
-cp "$BIN_DIR/solidity-extractor" extractor-pack/tools/${platform}/autobuilder
