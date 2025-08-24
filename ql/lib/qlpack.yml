@@ -1,0 +1,7 @@
+name: codeql/solidity-all
+version: 0.0.1
+groups: solidity
+extractor: solidity
+dbscheme: solidity.dbscheme
+upgrades: upgrades
+library: true
