@@ -9,25 +9,25 @@
  *       precision
  */
 
-import codeql.solidity.ast.internal.TreeSitter
+import codeql.Ast
 
 /**
  * Holds if the given expression has a division operation as a descendant.
  * This predicate recursively traverses the AST to find division operations.
  */
-predicate hasDivisionDescendant(Solidity::AstNode node) {
-  exists(Solidity::BinaryExpression divExpr |
+predicate hasDivisionDescendant(AstNode node) {
+  exists(BinaryExpression divExpr |
     divExpr.getOperator() = "/" and
     divExpr = node
   )
   or
-  exists(Solidity::AstNode child |
-    child = node.getAFieldOrChild() and
+  exists(AstNode child |
+    child = node.getAChild() and
     hasDivisionDescendant(child)
   )
 }
 
-from Solidity::BinaryExpression expr
+from BinaryExpression expr
 where 
   expr.getOperator() = "*" and
   hasDivisionDescendant(expr.getLeft())
