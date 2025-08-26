@@ -14,7 +14,7 @@ class BooleanLiteral extends TBooleanLiteral, TLiteral, AstNodeImpl {
     toTreeSitter(result) = node.getChild()
   }
 
-  override string toString() { result = "BooleanLiteral" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -58,7 +58,7 @@ class StringLiteral extends TStringLiteral, TLiteral, AstNodeImpl {
     toTreeSitter(result) = node.getChild(_)
   }
 
-  override string toString() { result = "StringLiteral" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 

@@ -5,16 +5,6 @@ private import Ast
 
 /* Derivations of the Statement and YulStatement classes are defined here */
 
-class AssemblyStatement extends TAssemblyStatement, Statement, AstNodeImpl {
-  override AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
-
-  override string toString() { result = toTreeSitter(this).toString() }
-
-  override string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
-
-  override Location getLocation() { result = toTreeSitter(this).getLocation() }
-}
-
 class BlockStatement extends TBlockStatement, Statement, AstNodeImpl {
   private Solidity::BlockStatement node;
 
@@ -24,7 +14,7 @@ class BlockStatement extends TBlockStatement, Statement, AstNodeImpl {
     toTreeSitter(result) = node.getChild(_)
   }
 
-  override string toString() { result = "BlockStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -38,7 +28,7 @@ class BreakStatement extends TBreakStatement, Statement, Token, AstNodeImpl {
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
-  override string toString() { result = "BreakStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -52,7 +42,7 @@ class ContinueStatement extends TContinueStatement, Statement, Token, AstNodeImp
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
-  override string toString() { result = "ContinueStatement" }
+    override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -72,7 +62,7 @@ class DoWhileStatement extends TDoWhileStatement, Statement, AstNodeImpl {
 
   AstNode getCondition() { toTreeSitter(result) = node.getCondition() }
 
-  override string toString() { result = "DoWhileStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -90,7 +80,7 @@ class EmitStatement extends TEmitStatement, Statement, AstNodeImpl {
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  override string toString() { result = "EmitStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -104,7 +94,7 @@ class ExpressionStatement extends TExpressionStatement, Statement, AstNodeImpl {
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
-  override string toString() { result = "ExpressionStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -128,7 +118,7 @@ class ForStatement extends TForStatement, Statement, AstNodeImpl {
 
   AstNode getUpdate() { toTreeSitter(result) = node.getUpdate() }
 
-  override string toString() { result = "ForStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -148,7 +138,7 @@ class IfStatement extends TIfStatement, Statement, AstNodeImpl {
 
   AstNode getElse() { toTreeSitter(result) = node.getElse() }
 
-  override string toString() { result = "IfStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -166,7 +156,7 @@ class ReturnStatement extends TReturnStatement, Statement, AstNodeImpl {
 
   AstNode getChild() { toTreeSitter(result) = node.getChild() }
 
-  override string toString() { result = "ReturnStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -180,7 +170,7 @@ class RevertStatement extends TRevertStatement, Statement, AstNodeImpl {
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
-  override string toString() { result = "RevertStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -194,7 +184,7 @@ class TryStatement extends TTryStatement, Statement, AstNodeImpl {
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
-  override string toString() { result = "TryStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -208,7 +198,7 @@ class WhileStatement extends TWhileStatement, Statement, AstNodeImpl {
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
-  override string toString() { result = "WhileStatement" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 

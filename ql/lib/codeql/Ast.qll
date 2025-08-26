@@ -24,7 +24,7 @@ class AstNode extends TAstNode {
 
   int getParentIndex() { result = toTreeSitter(this).getParentIndex() }
 
-  string toString() { result = "AstNode" }
+  string toString() { result = toTreeSitter(this).toString() }
 
   string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
 
@@ -131,16 +131,6 @@ class Declaration extends TDeclaration, TAstNode {
   Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
-class FunctionElement extends TFunctionElement, TAstNode {
-  AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
-
-  string toString() { result = toTreeSitter(this).toString() }
-
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
-
-  Location getLocation() { result = toTreeSitter(this).getLocation() }
-}
-
 class SourceUnit extends TSourceUnit, TAstNode {
   AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
 
@@ -161,24 +151,61 @@ class Contract extends TContract, TAstNode {
   Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
-class CallStructArgument extends TCallStructArgument, AstNode, AstNodeImpl {
-  private Solidity::CallStructArgument node;
+/* Other classes that are shared across multiple files */
 
-  CallStructArgument() { this = TCallStructArgument(node) }
+class Identifier extends TIdentifier, TToken {
+  string toString() { result = toTreeSitter(this).toString() }
+
+  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
+}
+
+class Parameter extends TParameter, AstNode, AstNodeImpl {
+  private Solidity::Parameter node;
+
+  Parameter() { this = TParameter(node) }
 
   override AstNode getAChild() { 
-    toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getValue()
+    toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getType() or result = this.location()
   }
 
-  AstNode getName() { toTreeSitter(result) = node.getName() }
+  Identifier getName() { toTreeSitter(result) = node.getName() }
 
-  AstNode getValue() { toTreeSitter(result) = node.getValue() }
+  TypeName getType() { toTreeSitter(result) = node.getType() }
 
-  override string toString() { result = "CallStructArgument" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
-  override Location getLocation() { result = node.getLocation() }
+  AstNode location() { toTreeSitter(result) = node.getLocation() }
+
+  // Have to call to the underlying AstNode class to get the correct Location type
+  override Location getLocation() { result = toTreeSitter(this).getLocation() }
+}
+
+class TypeName extends TTypeName, AstNode, AstNodeImpl {
+  private Solidity::TypeName node;
+
+  TypeName() { this = TTypeName(node) }
+
+  override AstNode getAChild() { 
+    toTreeSitter(result) = node.getKeyIdentifier() or toTreeSitter(result) = node.getKeyType() or toTreeSitter(result) = node.getParameters(_) or toTreeSitter(result) = node.getValueIdentifier() or toTreeSitter(result) = node.getValueType()
+  }
+
+  Identifier getKeyIdentifier() { toTreeSitter(result) = node.getKeyIdentifier() }
+
+  AstNode getKeyType() { toTreeSitter(result) = node.getKeyType() }
+
+  AstNode getParameters(int i) { toTreeSitter(result) = node.getParameters(i) }
+
+  Identifier getValueIdentifier() { toTreeSitter(result) = node.getValueIdentifier() }
+
+  TypeName getValueType() { toTreeSitter(result) = node.getValueType() }
+
+  override string toString() { result = toTreeSitter(this).toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
 class ConstantVariableDeclaration extends TConstantVariableDeclaration, AstNode, AstNodeImpl {
@@ -196,7 +223,7 @@ class ConstantVariableDeclaration extends TConstantVariableDeclaration, AstNode,
 
   AstNode getValue() { toTreeSitter(result) = node.getValue() }
 
-  override string toString() { result = "ConstantVariableDeclaration" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -214,7 +241,7 @@ class ConstructorDefinition extends TConstructorDefinition, AstNode, AstNodeImpl
 
   AstNode getBody() { toTreeSitter(result) = node.getBody() }
 
-  override string toString() { result = "ConstructorDefinition" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -234,7 +261,7 @@ class ContractDeclaration extends TContractDeclaration, AstNode, AstNodeImpl {
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  override string toString() { result = "ContractDeclaration" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -254,7 +281,7 @@ class EnumDeclaration extends TEnumDeclaration, AstNode, AstNodeImpl {
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  override string toString() { result = "EnumDeclaration" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -272,7 +299,7 @@ class ErrorDeclaration extends TErrorDeclaration, AstNode, AstNodeImpl {
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  override string toString() { result = "ErrorDeclaration" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -290,29 +317,7 @@ class EventDefinition extends TEventDefinition, AstNode, AstNodeImpl {
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  override string toString() { result = "EventDefinition" }
-
-  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
-
-  override Location getLocation() { result = node.getLocation() }
-}
-
-class FunctionDefinition extends TFunctionDefinition, AstNode, AstNodeImpl {
-  private Solidity::FunctionDefinition node;
-
-  FunctionDefinition() { this = TFunctionDefinition(node) }
-
-  override AstNode getAChild() { 
-    toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getReturnType() or toTreeSitter(result) = node.getChild(_)
-  }
-
-  AstNode getBody() { toTreeSitter(result) = node.getBody() }
-
-  AstNode getName() { toTreeSitter(result) = node.getName() }
-
-  AstNode getReturnType() { toTreeSitter(result) = node.getReturnType() }
-
-  override string toString() { result = "FunctionDefinition" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -332,7 +337,7 @@ class InterfaceDeclaration extends TInterfaceDeclaration, AstNode, AstNodeImpl {
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  override string toString() { result = "InterfaceDeclaration" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -352,7 +357,7 @@ class LibraryDeclaration extends TLibraryDeclaration, AstNode, AstNodeImpl {
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  override string toString() { result = "LibraryDeclaration" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -372,34 +377,11 @@ class ModifierDefinition extends TModifierDefinition, AstNode, AstNodeImpl {
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  override string toString() { result = "ModifierDefinition" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
   override Location getLocation() { result = node.getLocation() }
-}
-
-class Parameter extends TParameter, AstNode, AstNodeImpl {
-  private Solidity::Parameter node;
-
-  Parameter() { this = TParameter(node) }
-
-  override AstNode getAChild() { 
-    toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getType()
-  }
-
-  AstNode getName() { toTreeSitter(result) = node.getName() }
-
-  AstNode getType() { toTreeSitter(result) = node.getType() }
-
-  override string toString() { result = "Parameter" }
-
-  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
-
-  AstNode location() { toTreeSitter(result) = node.getLocation() }
-
-  // Have to call to the underlying AstNode class to get the correct Location type
-  override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
 class StateVariableDeclaration extends TStateVariableDeclaration, AstNode, AstNodeImpl {
@@ -417,7 +399,7 @@ class StateVariableDeclaration extends TStateVariableDeclaration, AstNode, AstNo
 
   AstNode getValue() { toTreeSitter(result) = node.getValue() }
 
-  override string toString() { result = "StateVariableDeclaration" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -437,7 +419,7 @@ class StructDeclaration extends TStructDeclaration, AstNode, AstNodeImpl {
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  override string toString() { result = "StructDeclaration" }
+  override string toString() { result = toTreeSitter(this).toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 

@@ -2,6 +2,7 @@ private import solidity.ast.internal.TreeSitter
 private import solidity.ast.internal.Ast
 private import Locations
 private import Ast
+private import Call
 
 /* Derivations of the Expression class are defined here */
 
@@ -16,7 +17,7 @@ class ArrayAccess extends TArrayAccess, Expression, AstNodeImpl {
 
   AstNode getIndex() { toTreeSitter(result) = node.getIndex() }
 
-  override string toString() { result = "ArrayAccess" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -96,9 +97,9 @@ class CallExpression extends TCallExpression, Expression, AstNodeImpl {
     toTreeSitter(result) = node.getFunction() or toTreeSitter(result) = node.getChild(_)
   }
 
-  Expression getFunction() { toTreeSitter(result) = node.getFunction() }
+  CallArgument getArguments() { toTreeSitter(result) = node.getChild(_) }
 
-  // TODO: CallArgument getArguments() equivalent to get the call arguments to a CallExpression
+  Expression getFunction() { toTreeSitter(result) = node.getFunction() }
 
   override string toString() { result = node.toString() }
 
@@ -121,7 +122,7 @@ class MemberExpression extends TMemberExpression, Expression, AstNodeImpl {
   // TODO: Should be Identifier and not AstNode directly
   AstNode getProperty() { toTreeSitter(result) = node.getProperty() }
 
-  override string toString() { result = "MemberExpression" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -142,7 +143,7 @@ class NewExpression extends TNewExpression, Expression, AstNodeImpl {
 
   // TODO: CallArgument getArguments() equivalent to get the arguments for a NewExpression
 
-  override string toString() { result = "NewExpression" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -160,7 +161,7 @@ class ParenthesizedExpression extends TParenthesizedExpression, Expression, AstN
 
   Expression getChild() { toTreeSitter(result) = node.getChild() }
 
-  override string toString() { result = "ParenthesizedExpression" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -178,7 +179,7 @@ class TernaryExpression extends TTernaryExpression, Expression, AstNodeImpl {
 
   Expression getChild(int i) { toTreeSitter(result) = node.getChild(i) }
 
-  override string toString() { result = "TernaryExpression" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
@@ -196,7 +197,7 @@ class TupleExpression extends TTupleExpression, Expression, AstNodeImpl {
 
   Expression getChild(int i) { toTreeSitter(result) = node.getChild(i) }
 
-  override string toString() { result = "TupleExpression" }
+  override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
