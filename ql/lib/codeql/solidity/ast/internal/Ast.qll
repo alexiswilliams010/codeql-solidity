@@ -577,56 +577,6 @@ class TToken =
   or
   TYulLeave;
 
-class TSourceUnit = 
-  TImportDirective
-  or
-  TUsingDirective
-  or
-  TContractDeclaration
-  or
-  TInterfaceDeclaration
-  or
-  TLibraryDeclaration
-  or
-  TFunctionDefinition
-  or
-  TConstantVariableDeclaration
-  or
-  TStructDeclaration
-  or
-  TEnumDeclaration
-  or
-  TUserDefinedTypeDefinition
-  or
-  TErrorDeclaration
-  or
-  TEventDefinition;
-
-class TContract = 
-  TContractBody
-  or
-  TConstructorDefinition
-  or
-  TFunctionDefinition
-  or
-  TModifierDefinition
-  or
-  TFallbackReceiveDefinition
-  or
-  TStructDeclaration
-  or
-  TEnumDeclaration
-  or
-  TUserDefinedTypeDefinition
-  or
-  TStateVariableDeclaration
-  or
-  TEventDefinition
-  or
-  TErrorDeclaration
-  or
-  TUsingDirective;
-
 class TExpression = 
   TArrayAccess
   or
@@ -800,3 +750,53 @@ class TAssemblyStatement =
   TAssemblyFlags
   or
   TYulStatement;
+
+class TSourceUnit = 
+  TImportDirective
+  or
+  TUsingDirective
+  or
+  TContractDeclaration
+  or
+  TInterfaceDeclaration
+  or
+  TLibraryDeclaration
+  or
+  TFunctionDefinition
+  or
+  TConstantVariableDeclaration
+  or
+  TStructDeclaration
+  or
+  TEnumDeclaration
+  or
+  TUserDefinedTypeDefinition
+  or
+  TErrorDeclaration
+  or
+  TEventDefinition;
+
+class TContract = 
+  TContractBody
+  or
+  TConstructorDefinition
+  or
+  TFunctionDefinition
+  or
+  TModifierDefinition
+  or
+  TFallbackReceiveDefinition
+  or
+  TStructDeclaration
+  or
+  TEnumDeclaration
+  or
+  TUserDefinedTypeDefinition
+  or
+  TStateVariableDeclaration
+  or
+  TEventDefinition
+  or
+  TErrorDeclaration
+  or
+  TUsingDirective;

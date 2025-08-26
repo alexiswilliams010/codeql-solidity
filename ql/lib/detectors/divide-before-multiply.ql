@@ -10,6 +10,7 @@
  */
 
 import codeql.Ast
+import codeql.Expression
 
 /**
  * Holds if the given expression has a division operation as a descendant.
