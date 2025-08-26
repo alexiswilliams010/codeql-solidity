@@ -3,55 +3,45 @@ private import solidity.ast.internal.TreeSitter
 private import solidity.ast.internal.Ast
 private import Locations
 
-class AstNode instanceof TAstNode {
+// A node in the AST. This is the base class for all classes in this library
+class AstNode extends TAstNode {
+  // TAstNode is an algebraic data type that cannot be used to generate a characteristic predicate
+  // So each time we need to get an underlying value, we need to convert from TAstNode to Solidity::AstNode and call the method on that
   AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
 
   AstNode getParent() { toTreeSitter(result) = toTreeSitter(this).getParent() }
 
   int getParentIndex() { result = toTreeSitter(this).getParentIndex() }
-  
+
   string toString() { result = "AstNode" }
-  
+
   string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
-  
+
   Location getLocation() { result = toTreeSitter(this).getLocation() }
 
-  File getFile() { result = this.getLocation().getFile() }
+  File getFile() { result = toTreeSitter(this).getLocation().getFile() }
 }
 
-class BinaryExpression instanceof TBinaryExpression {
-  string toString() { result = "BinaryExpression" }
+class BinaryExpression extends TBinaryExpression, AstNode {
+  // TBinaryExpression is NOT an algebraic data type (it is an alias) so we can use it to generate a characteristic predicate
+  private Solidity::BinaryExpression node;
 
-  AstNode getAChild() { 
-    // Return either left or right operand
-    result = this.getLeft() or result = this.getRight()
+  BinaryExpression() { this = TBinaryExpression(node) }
+
+  override AstNode getAChild() { 
+    // Return both left and right operands
+    toTreeSitter(result) = node.getLeft() or toTreeSitter(result) = node.getRight()
   }
 
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
+  AstNode getLeft() { toTreeSitter(result) = node.getLeft() }
 
-  AstNode getLeft() { 
-    // Cast to TreeSitter BinaryExpression and access getLeft
-    exists(Solidity::BinaryExpression binExpr |
-      binExpr = toTreeSitter(this) and
-      toTreeSitter(result) = binExpr.getLeft()
-    )
-  }
+  AstNode getRight() { toTreeSitter(result) = node.getRight() }
 
-  AstNode getRight() { 
-    // Cast to TreeSitter BinaryExpression and access getRight
-    exists(Solidity::BinaryExpression binExpr |
-      binExpr = toTreeSitter(this) and
-      toTreeSitter(result) = binExpr.getRight()
-    )
-  }
+  string getOperator() { result = node.getOperator() }
 
-  string getOperator() { 
-    // Cast to TreeSitter BinaryExpression and access getOperator
-    exists(Solidity::BinaryExpression binExpr |
-      binExpr = toTreeSitter(this) and 
-      result = binExpr.getOperator()
-    )
-  }
+  override string toString() { result = node.getOperator() }
 
-  Location getLocation() { result = toTreeSitter(this).getLocation() }
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
 }
