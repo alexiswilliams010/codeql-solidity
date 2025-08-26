@@ -5,6 +5,8 @@ private import TreeSitter
 cached newtype TAstNode = 
   TAnyPragmaToken(Solidity::AnyPragmaToken e)
   or
+  TAnySourceType(Solidity::AnySourceType e)
+  or
   TArrayAccess(Solidity::ArrayAccess e)
   or
   TAssemblyFlags(Solidity::AssemblyFlags e)
@@ -257,6 +259,8 @@ cached newtype TAstNode =
 Solidity::AstNode toTreeSitter(TAstNode node) {
   TAnyPragmaToken(result) = node
   or
+  TAnySourceType(result) = node
+  or
   TArrayAccess(result) = node
   or
   TAssemblyFlags(result) = node
@@ -504,7 +508,74 @@ Solidity::AstNode toTreeSitter(TAstNode node) {
 
 // Group Solidity-specific types into high-level classes
 // All classes will be modeled after Solidity language grammar: https://docs.soliditylang.org/en/latest/grammar.html
-class TToken = TSolToken;
+class TToken =
+  TSolToken
+  or
+  TReservedWord
+  or
+  TAnyPragmaToken
+  or
+  TAnySourceType
+  or
+  TBreakStatement
+  or
+  TComment
+  or
+  TContinueStatement
+  or
+  TEnumValue
+  or
+  TFalse
+  or
+  THexStringLiteral
+  or
+  TIdentifier
+  or
+  TImmutable
+  or
+  TNumberUnit
+  or
+  TPragmaValue
+  or
+  TPrimitiveType
+  or
+  TSolidityPragmaToken
+  or
+  TSolidityVersion
+  or
+  TStateLocation
+  or
+  TStateMutability
+  or
+  TString
+  or
+  TTrue
+  or
+  TUnchecked
+  or
+  TUnicodeStringLiteral
+  or
+  TUserDefinableOperator
+  or
+  TVirtual
+  or
+  TVisibility
+  or
+  TYulBoolean
+  or
+  TYulBreak
+  or
+  TYulContinue
+  or
+  TYulDecimalNumber
+  or
+  TYulEvmBuiltin
+  or
+  TYulHexNumber
+  or
+  TYulHexStringLiteral
+  or
+  TYulLeave;
 
 class TSourceUnit = 
   TImportDirective

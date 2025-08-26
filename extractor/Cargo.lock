@@ -832,8 +832,7 @@ checksum = "c4013970217383f67b18aef68f6fb2e8d409bc5755227092d32efb0422ba24b8"
 [[package]]
 name = "tree-sitter-solidity"
 version = "1.2.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4eacf8875b70879f0cb670c60b233ad0b68752d9e1474e6c3ef168eea8a90b25"
+source = "git+https://github.com/alexiswilliams010/tree-sitter-solidity.git?branch=codeql-solidity#d9793a853e66460a0996b5e5d2a0eea649662e72"
 dependencies = [
  "cc",
  "tree-sitter-language",
