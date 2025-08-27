@@ -1,7 +1,8 @@
 private import solidity.ast.internal.TreeSitter
 private import solidity.ast.internal.Ast
-private import Locations
 private import Ast
+private import Locations
+private import Token
 
 /* Derivations of the Statement and YulStatement classes are defined here */
 
@@ -15,34 +16,6 @@ class BlockStatement extends TBlockStatement, Statement, AstNodeImpl {
   }
 
   override string toString() { result = node.toString() }
-
-  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
-
-  override Location getLocation() { result = node.getLocation() }
-}
-
-class BreakStatement extends TBreakStatement, Statement, Token, AstNodeImpl {
-  private Solidity::BreakStatement node;
-
-  BreakStatement() { this = TBreakStatement(node) }
-
-  override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
-
-  override string toString() { result = node.toString() }
-
-  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
-
-  override Location getLocation() { result = node.getLocation() }
-}
-
-class ContinueStatement extends TContinueStatement, Statement, Token, AstNodeImpl {
-  private Solidity::ContinueStatement node;
-
-  ContinueStatement() { this = TContinueStatement(node) }
-
-  override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
-
-    override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 

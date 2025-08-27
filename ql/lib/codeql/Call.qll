@@ -1,7 +1,8 @@
 private import solidity.ast.internal.TreeSitter
 private import solidity.ast.internal.Ast
-private import Locations
 private import Ast
+private import Locations
+private import Token
 
 /* Contains classes related to Calls */
 

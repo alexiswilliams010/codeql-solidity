@@ -2,6 +2,7 @@
 private import solidity.ast.internal.TreeSitter
 private import solidity.ast.internal.Ast
 private import Locations
+private import Token
 
 // Useful for ensuring that all AstNode implementations have the required methods
 abstract class AstNodeImpl extends TAstNode {
@@ -31,18 +32,6 @@ class AstNode extends TAstNode {
   Location getLocation() { result = toTreeSitter(this).getLocation() }
 
   File getFile() { result = toTreeSitter(this).getLocation().getFile() }
-}
-
-// Wrapper for the Token class in the internal AST library
-class Token extends TToken, TAstNode {
-  // TToken is an algebraic data type so we can't use it to generate a characteristic predicate
-  AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
-
-  string toString() { result = toTreeSitter(this).toString() }
-
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
-
-  Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
 // Wrapper for the Expression class in the internal AST library
@@ -152,13 +141,6 @@ class Contract extends TContract, TAstNode {
 }
 
 /* Other classes that are shared across multiple files */
-
-class Identifier extends TIdentifier, TToken {
-  string toString() { result = toTreeSitter(this).toString() }
-
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
-}
-
 class Parameter extends TParameter, AstNode, AstNodeImpl {
   private Solidity::Parameter node;
 
@@ -240,26 +222,6 @@ class ConstructorDefinition extends TConstructorDefinition, AstNode, AstNodeImpl
   }
 
   AstNode getBody() { toTreeSitter(result) = node.getBody() }
-
-  override string toString() { result = toTreeSitter(this).toString() }
-
-  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
-
-  override Location getLocation() { result = node.getLocation() }
-}
-
-class ContractDeclaration extends TContractDeclaration, AstNode, AstNodeImpl {
-  private Solidity::ContractDeclaration node;
-
-  ContractDeclaration() { this = TContractDeclaration(node) }
-
-  override AstNode getAChild() { 
-    toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getChild(_)
-  }
-
-  AstNode getBody() { toTreeSitter(result) = node.getBody() }
-
-  AstNode getName() { toTreeSitter(result) = node.getName() }
 
   override string toString() { result = toTreeSitter(this).toString() }
 
