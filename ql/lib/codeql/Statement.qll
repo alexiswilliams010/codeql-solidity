@@ -141,6 +141,8 @@ class RevertStatement extends TRevertStatement, Statement, AstNodeImpl {
 
   RevertStatement() { this = TRevertStatement(node) }
 
+  Expression getError() { toTreeSitter(result) = node.getError() }
+
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
   override string toString() { result = node.toString() }

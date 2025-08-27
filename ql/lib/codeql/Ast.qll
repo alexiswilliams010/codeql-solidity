@@ -50,14 +50,14 @@ class Literal extends TLiteral, Expression {
   override string toString() { result = toTreeSitter(this).toString() }
 }
 
-class Block extends TBlock, TAstNode {
-  AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
+class Block extends TBlock, AstNode {
+  override AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
 
-  string toString() { result = toTreeSitter(this).toString() }
+  override string toString() { result = toTreeSitter(this).toString() }
 
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
+  override string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
 
-  Location getLocation() { result = toTreeSitter(this).getLocation() }
+  override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
 class Statement extends TStatement, Block {
@@ -110,34 +110,34 @@ class YulLiteral extends TYulLiteral, YulExpression {
   override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
-class Declaration extends TDeclaration, TAstNode {
-  AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
+class Declaration extends TDeclaration, AstNode {
+  override AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
 
-  string toString() { result = toTreeSitter(this).toString() }
+  override string toString() { result = toTreeSitter(this).toString() }
 
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
+  override string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
 
-  Location getLocation() { result = toTreeSitter(this).getLocation() }
+  override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
-class SourceUnit extends TSourceUnit, TAstNode {
-  AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
+class SourceUnit extends TSourceUnit, AstNode {
+  override AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
 
-  string toString() { result = toTreeSitter(this).toString() }
+  override string toString() { result = toTreeSitter(this).toString() }
 
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
+  override string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
 
-  Location getLocation() { result = toTreeSitter(this).getLocation() }
+  override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
-class Contract extends TContract, TAstNode {
-  AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
+class Contract extends TContract, AstNode {
+  override AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
 
-  string toString() { result = toTreeSitter(this).toString() }
+  override string toString() { result = toTreeSitter(this).toString() }
 
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
+  override string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
 
-  Location getLocation() { result = toTreeSitter(this).getLocation() }
+  override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
 /* Other classes that are shared across multiple files */
@@ -386,4 +386,25 @@ class StructDeclaration extends TStructDeclaration, AstNode, AstNodeImpl {
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
   override Location getLocation() { result = node.getLocation() }
+}
+
+class VariableDeclaration extends TVariableDeclaration, AstNode, AstNodeImpl {
+  private Solidity::VariableDeclaration node;
+
+  VariableDeclaration() { this = TVariableDeclaration(node) }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
+
+  Identifier getName() { toTreeSitter(result) = node.getName() }
+
+  TypeName getType() { toTreeSitter(result) = node.getType() }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  AstNode location() { toTreeSitter(result) = node.getLocation() }
+
+  // Have to call to the underlying AstNode class to get the correct Location type
+  override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
