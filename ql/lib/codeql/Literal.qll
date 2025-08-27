@@ -6,10 +6,12 @@ private import Token
 
 /* Derivations of the Literal and YulLiteral classes are defined here */
 
-class BooleanLiteral extends TBooleanLiteral, TLiteral, AstNodeImpl {
+class BooleanLiteral extends TBooleanLiteral, Literal, AstNodeImpl {
   private Solidity::BooleanLiteral node;
 
   BooleanLiteral() { this = TBooleanLiteral(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild()
@@ -22,10 +24,12 @@ class BooleanLiteral extends TBooleanLiteral, TLiteral, AstNodeImpl {
   override Location getLocation() { result = node.getLocation() }
 }
 
-class NumberLiteral extends TNumberLiteral, Literal {
+class NumberLiteral extends TNumberLiteral, Literal, AstNodeImpl {
   private Solidity::NumberLiteral node;
 
   NumberLiteral() { this = TNumberLiteral(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
@@ -36,10 +40,12 @@ class NumberLiteral extends TNumberLiteral, Literal {
   override Location getLocation() { result = node.getLocation() }
 }
 
-class StringLiteral extends TStringLiteral, TLiteral, AstNodeImpl {
+class StringLiteral extends TStringLiteral, Literal, AstNodeImpl {
   private Solidity::StringLiteral node;
 
   StringLiteral() { this = TStringLiteral(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild(_)
@@ -56,6 +62,8 @@ class YulStringLiteral extends TYulStringLiteral, TYulLiteral, AstNodeImpl {
   private Solidity::YulStringLiteral node;
 
   YulStringLiteral() { this = TYulStringLiteral(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 

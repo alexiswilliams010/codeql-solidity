@@ -4,11 +4,13 @@ private import Locations
 
 /* Derivations of the SolToken class instantiated under TAstNode are defined here */
 
-class ReservedWord extends TReservedWord, AstNode {
+class ReservedWord extends TReservedWord, AstNode, AstNodeImpl {
   private SolToken node;
 
   ReservedWord() { this = TReservedWord(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -20,11 +22,13 @@ class ReservedWord extends TReservedWord, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class AnySourceType extends TAnySourceType, AstNode {
+class AnySourceType extends TAnySourceType, AstNode, AstNodeImpl {
   private SolToken node;
 
   AnySourceType() { this = TAnySourceType(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -36,11 +40,13 @@ class AnySourceType extends TAnySourceType, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class BreakStatement extends TBreakStatement, AstNode {
+class BreakStatement extends TBreakStatement, AstNode, AstNodeImpl {
   private SolToken node;
 
   BreakStatement() { this = TBreakStatement(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -52,11 +58,13 @@ class BreakStatement extends TBreakStatement, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class ContinueStatement extends TContinueStatement, AstNode {
+class ContinueStatement extends TContinueStatement, AstNode, AstNodeImpl {
   private SolToken node;
 
   ContinueStatement() { this = TContinueStatement(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -68,11 +76,13 @@ class ContinueStatement extends TContinueStatement, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class DecimalNumber extends TDecimalNumber, Literal, AstNode {
+class DecimalNumber extends TDecimalNumber, Literal, AstNode, AstNodeImpl {
   private SolToken node;
 
   DecimalNumber() { this = TDecimalNumber(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -84,11 +94,13 @@ class DecimalNumber extends TDecimalNumber, Literal, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class EnumValue extends TEnumValue, AstNode {
+class EnumValue extends TEnumValue, AstNode, AstNodeImpl {
   private SolToken node;
 
   EnumValue() { this = TEnumValue(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -100,11 +112,13 @@ class EnumValue extends TEnumValue, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class False extends TFalse, AstNode {
+class False extends TFalse, AstNode, AstNodeImpl {
   private SolToken node;
 
   False() { this = TFalse(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -116,11 +130,13 @@ class False extends TFalse, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class HexNumber extends THexNumber, AstNode {
+class HexNumber extends THexNumber, AstNode, AstNodeImpl {
   private SolToken node;
 
   HexNumber() { this = THexNumber(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -132,11 +148,13 @@ class HexNumber extends THexNumber, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class HexStringLiteral extends THexStringLiteral, Literal, AstNode {
+class HexStringLiteral extends THexStringLiteral, Literal, AstNode, AstNodeImpl {
   private SolToken node;
 
   HexStringLiteral() { this = THexStringLiteral(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -148,11 +166,13 @@ class HexStringLiteral extends THexStringLiteral, Literal, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class Identifier extends TIdentifier, AstNode {
+class Identifier extends TIdentifier, AstNode, AstNodeImpl {
   private SolToken node;
 
   Identifier() { this = TIdentifier(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -164,11 +184,13 @@ class Identifier extends TIdentifier, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class Immutable extends TImmutable, AstNode {
+class Immutable extends TImmutable, AstNode, AstNodeImpl {
   private SolToken node;
 
   Immutable() { this = TImmutable(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -180,11 +202,13 @@ class Immutable extends TImmutable, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class NumberUnit extends TNumberUnit, AstNode {
+class NumberUnit extends TNumberUnit, AstNode, AstNodeImpl {
   private SolToken node;
 
   NumberUnit() { this = TNumberUnit(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -196,11 +220,13 @@ class NumberUnit extends TNumberUnit, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class PragmaValue extends TPragmaValue, AstNode {
+class PragmaValue extends TPragmaValue, AstNode, AstNodeImpl {
   private SolToken node;
 
   PragmaValue() { this = TPragmaValue(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -212,11 +238,13 @@ class PragmaValue extends TPragmaValue, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class PrimitiveType extends TPrimitiveType, AstNode {
+class PrimitiveType extends TPrimitiveType, AstNode, AstNodeImpl {
   private SolToken node;
 
   PrimitiveType() { this = TPrimitiveType(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -228,11 +256,13 @@ class PrimitiveType extends TPrimitiveType, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class SolidityVersion extends TSolidityVersion, AstNode {
+class SolidityVersion extends TSolidityVersion, AstNode, AstNodeImpl {
   private SolToken node;
 
   SolidityVersion() { this = TSolidityVersion(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -244,11 +274,13 @@ class SolidityVersion extends TSolidityVersion, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class StateLocation extends TStateLocation, AstNode {
+class StateLocation extends TStateLocation, AstNode, AstNodeImpl {
   private SolToken node;
 
   StateLocation() { this = TStateLocation(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -260,11 +292,13 @@ class StateLocation extends TStateLocation, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class StateMutability extends TStateMutability, AstNode {
+class StateMutability extends TStateMutability, AstNode, AstNodeImpl {
   private SolToken node;
 
   StateMutability() { this = TStateMutability(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -276,11 +310,13 @@ class StateMutability extends TStateMutability, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class String extends TString, AstNode {
+class String extends TString, AstNode, AstNodeImpl {
   private SolToken node;
 
   String() { this = TString(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -292,11 +328,13 @@ class String extends TString, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class True extends TTrue, AstNode {
+class True extends TTrue, AstNode, AstNodeImpl {
   private SolToken node;
 
   True() { this = TTrue(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -308,11 +346,13 @@ class True extends TTrue, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class Unchecked extends TUnchecked, AstNode {
+class Unchecked extends TUnchecked, AstNode, AstNodeImpl {
   private SolToken node;
 
   Unchecked() { this = TUnchecked(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -324,11 +364,13 @@ class Unchecked extends TUnchecked, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class UnicodeStringLiteral extends TUnicodeStringLiteral, Literal, AstNode {
+class UnicodeStringLiteral extends TUnicodeStringLiteral, Literal, AstNode, AstNodeImpl {
   private SolToken node;
 
   UnicodeStringLiteral() { this = TUnicodeStringLiteral(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -340,11 +382,13 @@ class UnicodeStringLiteral extends TUnicodeStringLiteral, Literal, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class UserDefinableOperator extends TUserDefinableOperator, AstNode {
+class UserDefinableOperator extends TUserDefinableOperator, AstNode, AstNodeImpl {
   private SolToken node;
 
   UserDefinableOperator() { this = TUserDefinableOperator(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -356,11 +400,13 @@ class UserDefinableOperator extends TUserDefinableOperator, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class Virtual extends TVirtual, AstNode {
+class Virtual extends TVirtual, AstNode, AstNodeImpl {
   private SolToken node;
 
   Virtual() { this = TVirtual(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -372,11 +418,13 @@ class Virtual extends TVirtual, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class Visibility extends TVisibility, AstNode {
+class Visibility extends TVisibility, AstNode, AstNodeImpl {
   private SolToken node;
 
   Visibility() { this = TVisibility(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -388,11 +436,13 @@ class Visibility extends TVisibility, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulBoolean extends TYulBoolean, YulLiteral, AstNode {
+class YulBoolean extends TYulBoolean, YulLiteral, AstNode, AstNodeImpl {
   private SolToken node;
 
   YulBoolean() { this = TYulBoolean(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -404,11 +454,13 @@ class YulBoolean extends TYulBoolean, YulLiteral, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulBreak extends TYulBreak, AstNode {
+class YulBreak extends TYulBreak, AstNode, AstNodeImpl {
   private SolToken node;
 
   YulBreak() { this = TYulBreak(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -420,11 +472,13 @@ class YulBreak extends TYulBreak, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulContinue extends TYulContinue, AstNode {
+class YulContinue extends TYulContinue, AstNode, AstNodeImpl {
   private SolToken node;
 
   YulContinue() { this = TYulContinue(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -436,11 +490,13 @@ class YulContinue extends TYulContinue, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulDecimalNumber extends TYulDecimalNumber, YulLiteral, AstNode {
+class YulDecimalNumber extends TYulDecimalNumber, YulLiteral, AstNode, AstNodeImpl {
   private SolToken node;
 
   YulDecimalNumber() { this = TYulDecimalNumber(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -452,11 +508,13 @@ class YulDecimalNumber extends TYulDecimalNumber, YulLiteral, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulEvmBuiltin extends TYulEvmBuiltin, AstNode {
+class YulEvmBuiltin extends TYulEvmBuiltin, AstNode, AstNodeImpl {
   private SolToken node;
 
   YulEvmBuiltin() { this = TYulEvmBuiltin(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -468,11 +526,13 @@ class YulEvmBuiltin extends TYulEvmBuiltin, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulHexNumber extends TYulHexNumber, YulLiteral, AstNode {
+class YulHexNumber extends TYulHexNumber, YulLiteral, AstNode, AstNodeImpl {
   private SolToken node;
 
   YulHexNumber() { this = TYulHexNumber(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -484,11 +544,13 @@ class YulHexNumber extends TYulHexNumber, YulLiteral, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulHexStringLiteral extends TYulHexStringLiteral, YulLiteral, AstNode {
+class YulHexStringLiteral extends TYulHexStringLiteral, YulLiteral, AstNode, AstNodeImpl {
   private SolToken node;
 
   YulHexStringLiteral() { this = TYulHexStringLiteral(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 
   override string toString() { result = toToken(node).toString() }
@@ -500,10 +562,12 @@ class YulHexStringLiteral extends TYulHexStringLiteral, YulLiteral, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulLeave extends TYulLeave, AstNode {
+class YulLeave extends TYulLeave, AstNode, AstNodeImpl {
   private SolToken node;
 
   YulLeave() { this = TYulLeave(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
 
   override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
 

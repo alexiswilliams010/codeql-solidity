@@ -11,6 +11,8 @@ class BlockStatement extends TBlockStatement, Statement, AstNodeImpl {
 
   BlockStatement() { this = TBlockStatement(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild(_)
   }
@@ -26,6 +28,8 @@ class DoWhileStatement extends TDoWhileStatement, Statement, AstNodeImpl {
   private Solidity::DoWhileStatement node;
 
   DoWhileStatement() { this = TDoWhileStatement(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getCondition()
@@ -47,6 +51,8 @@ class EmitStatement extends TEmitStatement, Statement, AstNodeImpl {
 
   EmitStatement() { this = TEmitStatement(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getChild(_)
   }
@@ -65,6 +71,8 @@ class ExpressionStatement extends TExpressionStatement, Statement, AstNodeImpl {
 
   ExpressionStatement() { this = TExpressionStatement(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
   override string toString() { result = node.toString() }
@@ -78,6 +86,8 @@ class ForStatement extends TForStatement, Statement, AstNodeImpl {
   private Solidity::ForStatement node;
 
   ForStatement() { this = TForStatement(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getCondition() or toTreeSitter(result) = node.getInitial() or toTreeSitter(result) = node.getUpdate()
@@ -103,6 +113,8 @@ class IfStatement extends TIfStatement, Statement, AstNodeImpl {
 
   IfStatement() { this = TIfStatement(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody(_) or toTreeSitter(result) = node.getCondition() or toTreeSitter(result) = node.getElse()
   }
@@ -123,6 +135,8 @@ class ReturnStatement extends TReturnStatement, Statement, AstNodeImpl {
 
   ReturnStatement() { this = TReturnStatement(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild()
   }
@@ -141,6 +155,8 @@ class RevertStatement extends TRevertStatement, Statement, AstNodeImpl {
 
   RevertStatement() { this = TRevertStatement(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   Expression getError() { toTreeSitter(result) = node.getError() }
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
@@ -157,6 +173,8 @@ class TryStatement extends TTryStatement, Statement, AstNodeImpl {
 
   TryStatement() { this = TTryStatement(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
   override string toString() { result = node.toString() }
@@ -170,6 +188,12 @@ class WhileStatement extends TWhileStatement, Statement, AstNodeImpl {
   private Solidity::WhileStatement node;
 
   WhileStatement() { this = TWhileStatement(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  Statement getBody() { toTreeSitter(result) = node.getBody() }
+
+  Expression getCondition() { toTreeSitter(result) = node.getCondition() }
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 

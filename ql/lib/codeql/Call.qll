@@ -11,6 +11,8 @@ class CallArgument extends TCallArgument, AstNode, AstNodeImpl {
 
   CallArgument() { this = TCallArgument(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild(_)
   }
@@ -26,6 +28,8 @@ class CallStructArgument extends TCallStructArgument, AstNode, AstNodeImpl {
   private Solidity::CallStructArgument node;
 
   CallStructArgument() { this = TCallStructArgument(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getValue()

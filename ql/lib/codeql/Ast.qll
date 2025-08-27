@@ -6,6 +6,8 @@ private import Token
 
 // Useful for ensuring that all AstNode implementations have the required methods
 abstract class AstNodeImpl extends TAstNode {
+  abstract AstNode getParent();
+
   abstract AstNode getAChild();
 
   abstract string toString();
@@ -146,13 +148,15 @@ class Parameter extends TParameter, AstNode, AstNodeImpl {
 
   Parameter() { this = TParameter(node) }
 
-  override AstNode getAChild() { 
-    toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getType() or result = this.location()
-  }
-
   Identifier getName() { toTreeSitter(result) = node.getName() }
 
   TypeName getType() { toTreeSitter(result) = node.getType() }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { 
+    toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getType() or result = this.location()
+  }
 
   override string toString() { result = toTreeSitter(this).toString() }
 
@@ -169,9 +173,7 @@ class TypeName extends TTypeName, AstNode, AstNodeImpl {
 
   TypeName() { this = TTypeName(node) }
 
-  override AstNode getAChild() { 
-    toTreeSitter(result) = node.getKeyIdentifier() or toTreeSitter(result) = node.getKeyType() or toTreeSitter(result) = node.getParameters(_) or toTreeSitter(result) = node.getValueIdentifier() or toTreeSitter(result) = node.getValueType()
-  }
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   Identifier getKeyIdentifier() { toTreeSitter(result) = node.getKeyIdentifier() }
 
@@ -182,6 +184,10 @@ class TypeName extends TTypeName, AstNode, AstNodeImpl {
   Identifier getValueIdentifier() { toTreeSitter(result) = node.getValueIdentifier() }
 
   TypeName getValueType() { toTreeSitter(result) = node.getValueType() }
+
+  override AstNode getAChild() { 
+    toTreeSitter(result) = node.getKeyIdentifier() or toTreeSitter(result) = node.getKeyType() or toTreeSitter(result) = node.getParameters(_) or toTreeSitter(result) = node.getValueIdentifier() or toTreeSitter(result) = node.getValueType()
+  }
 
   override string toString() { result = toTreeSitter(this).toString() }
 
@@ -194,6 +200,8 @@ class ConstantVariableDeclaration extends TConstantVariableDeclaration, AstNode,
   private Solidity::ConstantVariableDeclaration node;
 
   ConstantVariableDeclaration() { this = TConstantVariableDeclaration(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getType() or toTreeSitter(result) = node.getValue()
@@ -217,6 +225,8 @@ class ConstructorDefinition extends TConstructorDefinition, AstNode, AstNodeImpl
 
   ConstructorDefinition() { this = TConstructorDefinition(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getChild(_)
   }
@@ -234,6 +244,8 @@ class EnumDeclaration extends TEnumDeclaration, AstNode, AstNodeImpl {
   private Solidity::EnumDeclaration node;
 
   EnumDeclaration() { this = TEnumDeclaration(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getName()
@@ -255,6 +267,8 @@ class ErrorDeclaration extends TErrorDeclaration, AstNode, AstNodeImpl {
 
   ErrorDeclaration() { this = TErrorDeclaration(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getChild(_)
   }
@@ -273,6 +287,8 @@ class EventDefinition extends TEventDefinition, AstNode, AstNodeImpl {
 
   EventDefinition() { this = TEventDefinition(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getChild(_)
   }
@@ -290,6 +306,8 @@ class InterfaceDeclaration extends TInterfaceDeclaration, AstNode, AstNodeImpl {
   private Solidity::InterfaceDeclaration node;
 
   InterfaceDeclaration() { this = TInterfaceDeclaration(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getChild(_)
@@ -311,6 +329,8 @@ class LibraryDeclaration extends TLibraryDeclaration, AstNode, AstNodeImpl {
 
   LibraryDeclaration() { this = TLibraryDeclaration(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getName()
   }
@@ -331,6 +351,8 @@ class ModifierDefinition extends TModifierDefinition, AstNode, AstNodeImpl {
 
   ModifierDefinition() { this = TModifierDefinition(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getChild(_)
   }
@@ -350,6 +372,8 @@ class StateVariableDeclaration extends TStateVariableDeclaration, AstNode, AstNo
   private Solidity::StateVariableDeclaration node;
 
   StateVariableDeclaration() { this = TStateVariableDeclaration(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getLocation(_) or toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getType() or toTreeSitter(result) = node.getValue() or toTreeSitter(result) = node.getVisibility(_)
@@ -373,6 +397,8 @@ class StructDeclaration extends TStructDeclaration, AstNode, AstNodeImpl {
 
   StructDeclaration() { this = TStructDeclaration(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getName()
   }
@@ -392,6 +418,8 @@ class VariableDeclaration extends TVariableDeclaration, AstNode, AstNodeImpl {
   private Solidity::VariableDeclaration node;
 
   VariableDeclaration() { this = TVariableDeclaration(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 

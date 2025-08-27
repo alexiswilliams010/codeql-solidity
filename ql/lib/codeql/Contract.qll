@@ -11,6 +11,8 @@ class ContractDeclaration extends TContractDeclaration, AstNode, AstNodeImpl {
 
   ContractDeclaration() { this = TContractDeclaration(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getChild(_)
   }
@@ -30,6 +32,8 @@ class ImportDirective extends TImportDirective, AstNode, AstNodeImpl {
   private Solidity::ImportDirective node;
 
   ImportDirective() { this = TImportDirective(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getAlias(_) or toTreeSitter(result) = node.getImportName(_) or toTreeSitter(result) = node.getSource()
@@ -51,6 +55,8 @@ class ImportDirective extends TImportDirective, AstNode, AstNodeImpl {
 class InheritanceSpecifier extends TInheritanceSpecifier, AstNode, AstNodeImpl {
   private Solidity::InheritanceSpecifier node;
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getAncestor() or toTreeSitter(result) = node.getAncestorArguments(_)
   }
@@ -71,6 +77,8 @@ class SourceFile extends TSourceFile, AstNode, AstNodeImpl {
 
   SourceFile() { this = TSourceFile(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild(_)
   }
@@ -86,6 +94,8 @@ class UsingDirective extends TUsingDirective, AstNode, AstNodeImpl {
   private Solidity::UsingDirective node;
 
   UsingDirective() { this = TUsingDirective(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getSource() or toTreeSitter(result) = node.getChild(_)

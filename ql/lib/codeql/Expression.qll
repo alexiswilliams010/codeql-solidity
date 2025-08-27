@@ -3,11 +3,14 @@ private import solidity.ast.internal.Ast
 private import Locations
 private import Ast
 private import Call
+private import Token
 
 /* Derivations of the Expression class are defined here */
 
 class ArrayAccess extends TArrayAccess, Expression, AstNodeImpl {
   private Solidity::ArrayAccess node;
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getBase() or toTreeSitter(result) = node.getIndex()
@@ -29,6 +32,8 @@ class AssignmentExpression extends TAssignmentExpression, Expression, AstNodeImp
 
   AssignmentExpression() { this = TAssignmentExpression(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getLeft() or toTreeSitter(result) = node.getRight()
   }
@@ -48,6 +53,8 @@ class AugmentedAssignmentExpression extends TAugmentedAssignmentExpression, Expr
   private Solidity::AugmentedAssignmentExpression node;
 
   AugmentedAssignmentExpression() { this = TAugmentedAssignmentExpression(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getLeft() or toTreeSitter(result) = node.getRight()
@@ -69,6 +76,8 @@ class BinaryExpression extends TBinaryExpression, Expression, AstNodeImpl {
   private Solidity::BinaryExpression node;
 
   BinaryExpression() { this = TBinaryExpression(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
       // Return both left and right operands
@@ -97,6 +106,8 @@ class CallExpression extends TCallExpression, Expression, AstNodeImpl {
     toTreeSitter(result) = node.getFunction() or toTreeSitter(result) = node.getChild(_)
   }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   CallArgument getArguments() { toTreeSitter(result) = node.getChild(_) }
 
   Expression getFunction() { toTreeSitter(result) = node.getFunction() }
@@ -113,14 +124,15 @@ class MemberExpression extends TMemberExpression, Expression, AstNodeImpl {
 
   MemberExpression() { this = TMemberExpression(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getObject() or toTreeSitter(result) = node.getProperty()
   }
 
   AstNode getObject() { toTreeSitter(result) = node.getObject() }
 
-  // TODO: Should be Identifier and not AstNode directly
-  AstNode getProperty() { toTreeSitter(result) = node.getProperty() }
+  Identifier getProperty() { toTreeSitter(result) = node.getProperty() }
 
   override string toString() { result = node.toString() }
 
@@ -133,6 +145,8 @@ class NewExpression extends TNewExpression, Expression, AstNodeImpl {
   private Solidity::NewExpression node;
 
   NewExpression() { this = TNewExpression(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getChild(_)
@@ -155,6 +169,8 @@ class ParenthesizedExpression extends TParenthesizedExpression, Expression, AstN
 
   ParenthesizedExpression() { this = TParenthesizedExpression(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild()
   }
@@ -173,6 +189,8 @@ class TernaryExpression extends TTernaryExpression, Expression, AstNodeImpl {
 
   TernaryExpression() { this = TTernaryExpression(node) }
 
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild(_)
   }
@@ -190,6 +208,8 @@ class TupleExpression extends TTupleExpression, Expression, AstNodeImpl {
   private Solidity::TupleExpression node;
 
   TupleExpression() { this = TTupleExpression(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild(_)
