@@ -9,8 +9,7 @@
  *       precision
  */
 
-import codeql.Ast
-import codeql.Expression
+import codeql.Solidity
 
 /**
  * Holds if the given expression has a division operation as a descendant.
@@ -19,12 +18,7 @@ import codeql.Expression
 predicate hasDivisionDescendant(AstNode node) {
   exists(BinaryExpression divExpr |
     divExpr.getOperator() = "/" and
-    divExpr = node
-  )
-  or
-  exists(AstNode child |
-    child = node.getAChild() and
-    hasDivisionDescendant(child)
+    divExpr = node.getAChild*()
   )
 }
 
