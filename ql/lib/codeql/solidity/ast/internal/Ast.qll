@@ -627,10 +627,14 @@ class TExpression =
   or
   TUpdateExpression
   or
-  TVariableDeclaration;
+  TVariableDeclaration
+  or
+  TYulExpression;
 
 class TLiteral =
   TStringLiteral
+  or
+  TDecimalNumber
   or
   TNumberLiteral
   or
@@ -704,7 +708,7 @@ class TYulLiteral =
   or
   TYulBoolean
   or
-  THexStringLiteral;
+  TYulHexStringLiteral;
 
 class TYulExpression = 
   TYulPath

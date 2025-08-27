@@ -35,15 +35,15 @@ class AstNode extends TAstNode {
 }
 
 // Wrapper for the Expression class in the internal AST library
-class Expression extends TExpression, TAstNode {
+class Expression extends TExpression, AstNode {
   // TExpression is an algebraic data type so we can't use it to generate a characteristic predicate
-  AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
+  override AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
 
-  string toString() { result = toTreeSitter(this).toString() }
+  override string toString() { result = toTreeSitter(this).toString() }
 
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
+  override string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
 
-  Location getLocation() { result = toTreeSitter(this).getLocation() }
+  override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
 class Literal extends TLiteral, Expression {
@@ -90,14 +90,14 @@ class YulStatement extends TYulStatement, AssemblyStatement {
   override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
-class YulExpression extends TYulExpression, TAstNode {
-  AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
+class YulExpression extends TYulExpression, Expression {
+  override AstNode getAChild() { toTreeSitter(result) = toTreeSitter(this).getAFieldOrChild() }
 
-  string toString() { result = toTreeSitter(this).toString() }
+  override string toString() { result = toTreeSitter(this).toString() }
 
-  string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
+  override string getAPrimaryQlClass() { result = toTreeSitter(this).getAPrimaryQlClass() }
 
-  Location getLocation() { result = toTreeSitter(this).getLocation() }
+  override Location getLocation() { result = toTreeSitter(this).getLocation() }
 }
 
 class YulLiteral extends TYulLiteral, YulExpression {

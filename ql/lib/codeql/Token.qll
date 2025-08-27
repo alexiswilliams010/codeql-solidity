@@ -68,7 +68,7 @@ class ContinueStatement extends TContinueStatement, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class DecimalNumber extends TDecimalNumber, AstNode {
+class DecimalNumber extends TDecimalNumber, Literal, AstNode {
   private SolToken node;
 
   DecimalNumber() { this = TDecimalNumber(node) }
@@ -132,7 +132,7 @@ class HexNumber extends THexNumber, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class HexStringLiteral extends THexStringLiteral, AstNode {
+class HexStringLiteral extends THexStringLiteral, Literal, AstNode {
   private SolToken node;
 
   HexStringLiteral() { this = THexStringLiteral(node) }
@@ -324,7 +324,7 @@ class Unchecked extends TUnchecked, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class UnicodeStringLiteral extends TUnicodeStringLiteral, AstNode {
+class UnicodeStringLiteral extends TUnicodeStringLiteral, Literal, AstNode {
   private SolToken node;
 
   UnicodeStringLiteral() { this = TUnicodeStringLiteral(node) }
@@ -388,7 +388,7 @@ class Visibility extends TVisibility, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulBoolean extends TYulBoolean, AstNode {
+class YulBoolean extends TYulBoolean, YulLiteral, AstNode {
   private SolToken node;
 
   YulBoolean() { this = TYulBoolean(node) }
@@ -436,7 +436,7 @@ class YulContinue extends TYulContinue, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulDecimalNumber extends TYulDecimalNumber, AstNode {
+class YulDecimalNumber extends TYulDecimalNumber, YulLiteral, AstNode {
   private SolToken node;
 
   YulDecimalNumber() { this = TYulDecimalNumber(node) }
@@ -468,7 +468,7 @@ class YulEvmBuiltin extends TYulEvmBuiltin, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulHexNumber extends TYulHexNumber, AstNode {
+class YulHexNumber extends TYulHexNumber, YulLiteral, AstNode {
   private SolToken node;
 
   YulHexNumber() { this = TYulHexNumber(node) }
@@ -484,7 +484,7 @@ class YulHexNumber extends TYulHexNumber, AstNode {
   override Location getLocation() { result = toToken(node).getLocation() }
 }
 
-class YulHexStringLiteral extends TYulHexStringLiteral, AstNode {
+class YulHexStringLiteral extends TYulHexStringLiteral, YulLiteral, AstNode {
   private SolToken node;
 
   YulHexStringLiteral() { this = TYulHexStringLiteral(node) }
