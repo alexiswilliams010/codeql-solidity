@@ -10,6 +10,17 @@ Use the Makefile commands to install the codeql cli and add it to your PATH:
 make install
 ```
 
+## Extract Solidity into a top-level QL Library
+
+Using tree-sitter, we are able to convert Solidity into a QL library using just the standard extract that exists in CodeQL with minimal configuration.
+To generate the `TreeSitter.qll` file using the extractor, run:
+
+```bash
+make pack
+```
+
+Note this only needs to be run if the underlying tree sitter bindings have changed, at which point `TreeSitter.qll` will need to be regenerated along with all the code databases.
+
 ## Generate Database
 
 To parse Solidity files and generate a codeql database, run the following:
