@@ -50,7 +50,7 @@ predicate isUsedInInheritance(ImportDirective imp, string importName) {
   exists(InheritanceSpecifier inh |
     inh.getFile() = imp.getFile() and
     exists(Identifier id | 
-      id = inh.getAncestor().getAChild() and
+      id = inh.getAncestor().getAChild*() and
       id.getValue() = importName
     )
   )
@@ -63,7 +63,7 @@ predicate isUsedInUsingDirective(ImportDirective imp, string importName) {
   exists(UsingDirective using |
     using.getFile() = imp.getFile() and
     exists(Identifier id |
-      id = using.getSource().getAChild() and
+      id = using.getSource().getAChild*() and
       id.getValue() = importName
     )
   )
@@ -76,7 +76,7 @@ predicate isUsedInTypeAnnotation(ImportDirective imp, string importName) {
   exists(TypeName typeName |
     typeName.getFile() = imp.getFile() and
     exists(Identifier id | 
-      id = typeName.getAChild() and
+      id = typeName.getAChild*() and
       id.getValue() = importName
     )
   )
@@ -89,7 +89,7 @@ predicate isUsedInVariableContext(ImportDirective imp, string importName) {
   exists(VariableDeclaration varDecl |
     varDecl.getFile() = imp.getFile() and
     exists(Identifier id |
-      id = varDecl.getAChild() and
+      id = varDecl.getAChild*() and
       id.getValue() = importName
     )
   )
@@ -97,7 +97,7 @@ predicate isUsedInVariableContext(ImportDirective imp, string importName) {
   exists(StateVariableDeclaration stateVar |
     stateVar.getFile() = imp.getFile() and
     exists(Identifier id |
-      id = stateVar.getAChild() and
+      id = stateVar.getAChild*() and
       id.getValue() = importName
     )
   )
@@ -110,7 +110,7 @@ predicate isUsedInNewExpression(ImportDirective imp, string importName) {
   exists(NewExpression newExpr |
     newExpr.getFile() = imp.getFile() and
     exists(Identifier id |
-      id = newExpr.getAChild() and
+      id = newExpr.getAChild*() and
       id.getValue() = importName
     )
   )
@@ -123,7 +123,7 @@ predicate isUsedInEvents(ImportDirective imp, string importName) {
   exists(EmitStatement emit |
     emit.getFile() = imp.getFile() and
     exists(Identifier id |
-      id = emit.getAChild() and
+      id = emit.getAChild*() and
       id.getValue() = importName
     )
   )
@@ -136,7 +136,7 @@ predicate isUsedInErrorHandling(ImportDirective imp, string importName) {
   exists(RevertStatement revert |
     revert.getFile() = imp.getFile() and
     exists(Identifier id |
-      id = revert.getAChild() and
+      id = revert.getAChild*() and
       id.getValue() = importName
     )
   )
