@@ -10,6 +10,18 @@ Use the Makefile commands to install the codeql cli and add it to your PATH:
 make install
 ```
 
+To work on the Solidity library files, you will also need to install the `qlpack` dependencies using the CodeQL CLI:
+
+```bash
+codeql pack install
+```
+
+When installing the required dependencies, make sure the CodeQL VSCode extension has not already installed the packs. If they have been pre-installed, remove them so the CLI can install successfully:
+
+```
+Linux install path for VSCode CodeQL packs: ~/codeql-home/codeql/qlpacks/codeql
+```
+
 ## Extract Solidity into a top-level QL Library
 
 Using tree-sitter, we are able to convert Solidity into a QL library using just the standard extract that exists in CodeQL with minimal configuration.

@@ -1,4 +1,8 @@
 ---
 lockVersion: 1.0.0
-dependencies: {}
+dependencies:
+  codeql/controlflow:
+    version: 2.0.18
+  codeql/util:
+    version: 2.0.21
 compiled: false
