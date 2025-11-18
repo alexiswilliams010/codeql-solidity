@@ -203,3 +203,40 @@ class WhileStatement extends TWhileStatement, Statement, AstNodeImpl {
 
   override Location getLocation() { result = node.getLocation() }
 }
+
+// Statements that derive from Token which roll into AstNode
+class BreakStatement extends TBreakStatement, AstNode, AstNodeImpl {
+  private SolToken node;
+
+  BreakStatement() { this = TBreakStatement(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
+
+  override string toString() { result = toToken(node).toString() }
+
+  string getValue() { result = toToken(node).getValue() }
+
+  override string getAPrimaryQlClass() { result = toToken(node).getAPrimaryQlClass() }
+
+  override Location getLocation() { result = toToken(node).getLocation() }
+}
+
+class ContinueStatement extends TContinueStatement, AstNode, AstNodeImpl {
+  private SolToken node;
+
+  ContinueStatement() { this = TContinueStatement(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
+
+  override string toString() { result = toToken(node).toString() }
+
+  string getValue() { result = toToken(node).getValue() }
+
+  override string getAPrimaryQlClass() { result = toToken(node).getAPrimaryQlClass() }
+
+  override Location getLocation() { result = toToken(node).getLocation() }
+}

@@ -15,7 +15,7 @@ class FunctionDefinition extends TFunctionDefinition, AstNode, AstNodeImpl {
     toTreeSitter(result) = node.getBody() or toTreeSitter(result) = node.getName() or toTreeSitter(result) = node.getReturnType() or toTreeSitter(result) = node.getChild(_)
   }
 
-  AstNode getBody() { toTreeSitter(result) = node.getBody() }
+  FunctionBody getBody() { toTreeSitter(result) = node.getBody() }
 
   Identifier getName() { toTreeSitter(result) = node.getName() }
 
@@ -48,6 +48,61 @@ class ReturnTypeDefinition extends TReturnTypeDefinition, AstNode, AstNodeImpl {
   override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override Parameter getAChild() { toTreeSitter(result) = node.getChild(_) }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
+class YulFunctionDefinition extends TYulFunctionDefinition, AstNode, AstNodeImpl {
+  private Solidity::YulFunctionDefinition node;
+
+  YulFunctionDefinition() { this = TYulFunctionDefinition(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getChild(_) }
+
+  AstNode getAFieldOrChild() { toTreeSitter(result) = node.getAFieldOrChild() }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
+class FallbackReceiveDefinition extends TFallbackReceiveDefinition, AstNode, AstNodeImpl {
+  private Solidity::FallbackReceiveDefinition node;
+
+  FallbackReceiveDefinition() { this = TFallbackReceiveDefinition(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getChild(_) }
+
+  AstNode getAFieldOrChild() { toTreeSitter(result) = node.getAFieldOrChild() }
+
+  FunctionBody getBody() { toTreeSitter(result) = node.getBody() }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
+class FunctionBody extends TFunctionBody, AstNode, AstNodeImpl {
+  private Solidity::FunctionBody node;
+
+  FunctionBody() { this = TFunctionBody(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getChild(_) }
+  AstNode getAFieldOrChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
   override string toString() { result = node.toString() }
 
