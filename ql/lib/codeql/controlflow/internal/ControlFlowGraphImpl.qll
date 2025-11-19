@@ -8,6 +8,7 @@ module Completion {
     TSimpleCompletion() or
     TBooleanCompletion(boolean b) { b in [false, true] } or
     TReturnCompletion() or
+    TBreakCompletion() or
     TRevertCompletion() // revert, assert, require - even though assert technically causes a panic
 
   abstract class Completion extends TCompletion {
@@ -57,10 +58,21 @@ module Completion {
     override ReturnSuccessor getAMatchingSuccessorType() { any() }
   }
 
-  class RevertCompletion extends Completion, TRevertCompletion {
-    override string toString() { result = "ExceptionCompletion" }
+  class BreakCompletion extends Completion, TBreakCompletion {
+    override string toString() { result = "BreakCompletion" }
 
-    override predicate isValidForSpecific(AstNode e) { none() }
+    override predicate isValidForSpecific(AstNode e) { e instanceof BreakStatement }
+
+    override BreakSuccessor getAMatchingSuccessorType() { any() }
+  }
+
+  class RevertCompletion extends Completion, TRevertCompletion {
+    override string toString() { result = "RevertCompletion" }
+
+    override predicate isValidForSpecific(AstNode e) { 
+      e instanceof RevertStatement
+      // TODO: Require and assert are not separate statements in TreeSitter, needs to be abstracted in the AST
+    }
 
     override RevertSuccessor getAMatchingSuccessorType() { any() }
   }
@@ -70,6 +82,7 @@ module Completion {
     TNormalSuccessor() or
     TBooleanSuccessor(boolean b) { b in [false, true] } or
     TReturnSuccessor() or
+    TBreakSuccessor() or
     TRevertSuccessor()
 
   class SuccessorType extends TSuccessorType {
@@ -94,7 +107,12 @@ module Completion {
     override string toString() { result = "return" }
   }
 
+  class BreakSuccessor extends SuccessorType, TBreakSuccessor {
+    override string toString() { result = "break" }
+  }
+
   class RevertSuccessor extends SuccessorType, TRevertSuccessor {
+    // TODO: When Require and Assert are added, this needs to change depending on which statement is being used
     override string toString() { result = "revert" }
   }
 }
@@ -103,8 +121,10 @@ module CfgScope {
   abstract class CfgScope extends AstNode { }
 
   private class FunctionScope extends CfgScope, FunctionDefinition { }
-
-  // TODO: Add other scopes including modules, contracts, etc.
+  private class ModifierScope extends CfgScope, ModifierDefinition { }
+  private class ConstructorScope extends CfgScope, ConstructorDefinition { }
+  private class FallbackReceiveDefinitionScope extends CfgScope, FallbackReceiveDefinition { }
+  private class ContractScope extends CfgScope, ContractDeclaration { }
 }
 
 private module Implementation implements CfgShared::InputSig<Location> {
@@ -112,7 +132,10 @@ private module Implementation implements CfgShared::InputSig<Location> {
   import Completion
   import CfgScope
 
-  predicate completionIsNormal(Completion c) { not c instanceof ReturnCompletion }
+  predicate completionIsNormal(Completion c) { 
+    not c instanceof ReturnCompletion or
+    not c instanceof RevertCompletion
+  }
 
   // Not using CFG splitting, so the following are just dummy types.
   private newtype TUnit = Unit()
@@ -138,13 +161,19 @@ private module Implementation implements CfgShared::InputSig<Location> {
   int maxSplits() { result = 0 }
 
   predicate scopeFirst(CfgScope scope, AstNode e) {
-    first(scope.(FunctionDefinition).getBody(), e)
-    // TODO: Add other scopes including modules, contracts, etc.
+    first(scope.(FunctionDefinition).getBody(), e) or
+    first(scope.(ModifierDefinition).getBody(), e) or
+    first(scope.(ConstructorDefinition).getBody(), e) or
+    first(scope.(FallbackReceiveDefinition).getBody(), e) or
+    first(scope.(ContractDeclaration).getBody(), e)
   }
 
   predicate scopeLast(CfgScope scope, AstNode e, Completion c) {
-    last(scope.(FunctionDefinition).getBody(), e, c)
-    // TODO: Add other scopes including modules, contracts, etc.
+    last(scope.(FunctionDefinition).getBody(), e, c) or
+    last(scope.(ModifierDefinition).getBody(), e, c) or
+    last(scope.(ConstructorDefinition).getBody(), e, c) or
+    last(scope.(FallbackReceiveDefinition).getBody(), e, c) or
+    last(scope.(ContractDeclaration).getBody(), e, c)
   }
 
   predicate successorTypeIsSimple(SuccessorType t) { t instanceof NormalSuccessor }
@@ -153,7 +182,7 @@ private module Implementation implements CfgShared::InputSig<Location> {
 
   SuccessorType getAMatchingSuccessorType(Completion c) { result = c.getAMatchingSuccessorType() }
 
-  predicate isAbnormalExitType(SuccessorType t) { none() }
+  predicate isAbnormalExitType(SuccessorType t) { t instanceof RevertSuccessor }
 }
 
 module CfgImpl = CfgShared::Make<Location, Implementation>;
@@ -219,7 +248,7 @@ private class ConditionalExpressionTree extends PostOrderTree instanceof IfState
  * ```
  */
 private class ForExpressionTree extends PostOrderTree instanceof ForStatement {
-  // TODO: This may need to be adjusted since the kaleidoscope version is more of a do-while construct
+  // TODO: This may need to be adjusted since the kaleidoscope version is more of a do-while construct i.e. post-order
   override predicate propagatesAbnormal(AstNode child) { none() }
 
   override predicate first(AstNode first) { first(super.getInitial(), first) }
@@ -246,26 +275,14 @@ private class ForExpressionTree extends PostOrderTree instanceof ForStatement {
   }
 }
 
-private class InitializerTree extends StandardPostOrderTree instanceof Initializer {
-  override ControlFlowTree getChildNode(int i) { result = super.getExpression() and i = 0 }
+private class NumberTree extends LeafTree instanceof NumberLiteral { }
+
+private class ParenExpressionTree extends StandardPostOrderTree instanceof ParenthesizedExpression {
+  override ControlFlowTree getChildNode(int i) { result = super.getChild() and i = 0 }
 }
 
-private class NumberTree extends LeafTree instanceof Number { }
-
-private class ParenExpressionTree extends StandardPostOrderTree instanceof ParenExpression {
-  override ControlFlowTree getChildNode(int i) { result = super.getExpression() and i = 0 }
+private class UnaryOpExpressionTree extends StandardPostOrderTree instanceof UnaryExpression {
+  override ControlFlowTree getChildNode(int i) { result = super.getArgument() and i = 0 }
 }
 
-private class UnaryOpExpressionTree extends StandardPostOrderTree instanceof UnaryOpExpression {
-  override ControlFlowTree getChildNode(int i) { result = super.getOperand() and i = 0 }
-}
-
-private class VarInExpressionTree extends StandardPostOrderTree instanceof VarInExpression {
-  override ControlFlowTree getChildNode(int i) {
-    result = super.getInitializer(i)
-    or
-    result = super.getBody() and i = count(super.getInitializer(_))
-  }
-}
-
-private class VariableExpressionTree extends LeafTree instanceof VariableExpression { }
+// TODO: The rest of the statement and expression trees need to be implemented

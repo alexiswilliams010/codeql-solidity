@@ -223,3 +223,23 @@ class TupleExpression extends TTupleExpression, Expression, AstNodeImpl {
 
   override Location getLocation() { result = node.getLocation() }
 }
+
+class UnaryExpression extends TUnaryExpression, Expression, AstNodeImpl {
+  private Solidity::UnaryExpression node;
+
+  UnaryExpression() { this = TUnaryExpression(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
+
+  Expression getArgument() { toTreeSitter(result) = node.getArgument() }
+
+  string getOperator() { result = node.getOperator() }
+
+  override string toString() { result = this.getOperator() + "..." }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
