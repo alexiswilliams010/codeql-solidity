@@ -110,6 +110,8 @@ class CallExpression extends TCallExpression, Expression, AstNodeImpl {
 
   CallArgument getArguments() { toTreeSitter(result) = node.getChild(_) }
 
+  CallArgument getArgument(int i) { toTreeSitter(result) = node.getChild(i) }
+
   Expression getFunction() { toTreeSitter(result) = node.getFunction() }
 
   override string toString() { result = node.toString() }

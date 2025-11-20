@@ -116,12 +116,18 @@ class IfStatement extends TIfStatement, Statement, AstNodeImpl {
   override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
-    toTreeSitter(result) = node.getBody(_) or toTreeSitter(result) = node.getCondition() or toTreeSitter(result) = node.getElse()
+    toTreeSitter(result) = node.getBody(_) or
+    toTreeSitter(result) = node.getCondition() or
+    toTreeSitter(result) = node.getElse()
   }
 
-  AstNode getCondition() { toTreeSitter(result) = node.getCondition() }
+  Expression getCondition() { toTreeSitter(result) = node.getCondition() }
 
-  AstNode getElse() { toTreeSitter(result) = node.getElse() }
+  Statement getThen() { toTreeSitter(result) = node.getBody(0) }
+
+  Statement getElse() { toTreeSitter(result) = node.getBody(1) }
+
+  ReservedWord getElseKeyword() { toTreeSitter(result) = node.getElse() }
 
   override string toString() { result = node.toString() }
 

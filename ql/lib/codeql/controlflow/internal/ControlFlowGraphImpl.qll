@@ -1,6 +1,7 @@
 private import codeql.Ast
 private import codeql.Solidity
 private import codeql.controlflow.Cfg as CfgShared
+private import codeql.controlflow.SuccessorType
 private import codeql.Locations
 
 module Completion {
@@ -74,46 +75,7 @@ module Completion {
       // TODO: Require and assert are not separate statements in TreeSitter, needs to be abstracted in the AST
     }
 
-    override RevertSuccessor getAMatchingSuccessorType() { any() }
-  }
-
-  cached
-  private newtype TSuccessorType =
-    TNormalSuccessor() or
-    TBooleanSuccessor(boolean b) { b in [false, true] } or
-    TReturnSuccessor() or
-    TBreakSuccessor() or
-    TRevertSuccessor()
-
-  class SuccessorType extends TSuccessorType {
-    string toString() { none() }
-  }
-
-  class NormalSuccessor extends SuccessorType, TNormalSuccessor {
-    override string toString() { result = "successor" }
-  }
-
-  class BooleanSuccessor extends SuccessorType, TBooleanSuccessor {
-    boolean value;
-
-    BooleanSuccessor() { this = TBooleanSuccessor(value) }
-
-    override string toString() { result = value.toString() }
-
-    boolean getValue() { result = value }
-  }
-
-  class ReturnSuccessor extends SuccessorType, TReturnSuccessor {
-    override string toString() { result = "return" }
-  }
-
-  class BreakSuccessor extends SuccessorType, TBreakSuccessor {
-    override string toString() { result = "break" }
-  }
-
-  class RevertSuccessor extends SuccessorType, TRevertSuccessor {
-    // TODO: When Require and Assert are added, this needs to change depending on which statement is being used
-    override string toString() { result = "revert" }
+    override ExceptionSuccessor getAMatchingSuccessorType() { any() }
   }
 }
 
@@ -128,12 +90,22 @@ module CfgScope {
 }
 
 private module Implementation implements CfgShared::InputSig<Location> {
+  private import codeql.solidity.ast.internal.Ast
+  private import codeql.solidity.ast.internal.TreeSitter
   import codeql.Ast
   import Completion
   import CfgScope
 
+  private predicate id(Solidity::AstNode node1, Solidity::AstNode node2) { node1 = node2 }
+
+  private predicate idOf(Solidity::AstNode node, int id) = equivalenceRelation(id/2)(node, id)
+
+  int idOfAstNode(AstNode node) { idOf(toTreeSitter(node), result) }
+
+  int idOfCfgScope(CfgScope node) { result = idOfAstNode(node) }
+
   predicate completionIsNormal(Completion c) { 
-    not c instanceof ReturnCompletion or
+    not c instanceof ReturnCompletion and
     not c instanceof RevertCompletion
   }
 
@@ -176,13 +148,13 @@ private module Implementation implements CfgShared::InputSig<Location> {
     last(scope.(ContractDeclaration).getBody(), e, c)
   }
 
-  predicate successorTypeIsSimple(SuccessorType t) { t instanceof NormalSuccessor }
+  predicate successorTypeIsSimple(SuccessorType t) { t instanceof DirectSuccessor }
 
   predicate successorTypeIsCondition(SuccessorType t) { t instanceof BooleanSuccessor }
 
   SuccessorType getAMatchingSuccessorType(Completion c) { result = c.getAMatchingSuccessorType() }
 
-  predicate isAbnormalExitType(SuccessorType t) { t instanceof RevertSuccessor }
+  predicate isAbnormalExitType(SuccessorType t) { t instanceof ExceptionSuccessor }
 }
 
 module CfgImpl = CfgShared::Make<Location, Implementation>;
@@ -195,7 +167,6 @@ private class FunctionDefinitionTree extends LeafTree instanceof FunctionDefinit
 
 private class FunctionCallExpressionTree extends StandardPostOrderTree instanceof CallExpression
 {
-  // TODO: CallExpression is not that straightforward, needs to pull out the expression and then the arguments
   override ControlFlowTree getChildNode(int i) { result = super.getArgument(i) }
 }
 
@@ -215,7 +186,6 @@ private class ConditionalExpressionTree extends PostOrderTree instanceof IfState
   override predicate succ(AstNode pred, AstNode succ, Completion c) {
     last(super.getCondition(), pred, c) and
     (
-      // TODO: IfStatement does not directly expose 'if-then' path, needs to be pulled out
       first(super.getThen(), succ) and c.(BooleanCompletion).getValue() = true
       or
       first(super.getElse(), succ) and c.(BooleanCompletion).getValue() = false
