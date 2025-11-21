@@ -157,7 +157,9 @@ class NewExpression extends TNewExpression, Expression, AstNodeImpl {
   // TODO: Should be TypeName and not AstNode directly
   AstNode getName() { toTreeSitter(result) = node.getName() }
 
-  // TODO: CallArgument getArguments() equivalent to get the arguments for a NewExpression
+  CallArgument getArguments() { toTreeSitter(result) = node.getChild(_) }
+
+  CallArgument getArgument(int i) { toTreeSitter(result) = node.getChild(i) }
 
   override string toString() { result = node.toString() }
 
@@ -198,6 +200,12 @@ class TernaryExpression extends TTernaryExpression, Expression, AstNodeImpl {
   }
 
   Expression getChild(int i) { toTreeSitter(result) = node.getChild(i) }
+
+  Expression getCondition() { result = this.getChild(0) }
+
+  Expression getThen() { result = this.getChild(1) }
+
+  Expression getElse() { result = this.getChild(2) }
 
   override string toString() { result = node.toString() }
 

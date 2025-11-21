@@ -43,7 +43,8 @@ module Completion {
       e = any(IfStatement c).getCondition() or
       e = any(ForStatement c).getCondition() or
       e = any(WhileStatement c).getCondition() or
-      e = any(DoWhileStatement c).getCondition()
+      e = any(DoWhileStatement c).getCondition() or
+      e = any(TernaryExpression c).getCondition()
     }
 
     override BooleanSuccessor getAMatchingSuccessorType() { result.getValue() = value }
@@ -163,21 +164,6 @@ private import CfgImpl
 private import Completion
 private import CfgScope
 
-private class FunctionDefinitionTree extends LeafTree instanceof FunctionDefinition { }
-
-private class FunctionCallExpressionTree extends StandardPostOrderTree instanceof CallExpression
-{
-  override ControlFlowTree getChildNode(int i) { result = super.getArgument(i) }
-}
-
-private class BinaryOpExpressionTree extends StandardPostOrderTree instanceof BinaryExpression {
-  override ControlFlowTree getChildNode(int i) {
-    result = super.getLeft() and i = 0
-    or
-    result = super.getRight() and i = 1
-  }
-}
-
 private class ConditionalExpressionTree extends PostOrderTree instanceof IfStatement {
   override predicate propagatesAbnormal(AstNode child) { none() }
 
@@ -201,22 +187,29 @@ private class ConditionalExpressionTree extends PostOrderTree instanceof IfState
   }
 }
 
-/**
- * From https://llvm.org/docs/tutorial/MyFirstLanguageFrontend/LangImpl05.html#code-generation-for-the-for-loop in the LLVM tutorial it appears that
- * for loop conditions are checked at the end of the body, not the start. So for loops are roughly translated as follows:
- * ```
- * for VAR = INIT, CONDITION, STEP in
- *   BODY
- * ```
- * -->
- * ```
- * VAR = INIT
- * do {
- *   BODY
- *   VAR = VAR + STEP
- * } while (CONDITION)
- * ```
- */
+private class TernaryExpressionTree extends PostOrderTree instanceof TernaryExpression {
+  override predicate propagatesAbnormal(AstNode child) { none() }
+
+  override predicate first(AstNode first) { first(super.getCondition(), first) }
+
+  override predicate succ(AstNode pred, AstNode succ, Completion c) {
+    last(super.getCondition(), pred, c) and
+    (
+      first(super.getThen(), succ) and c.(BooleanCompletion).getValue() = true
+      or
+      first(super.getElse(), succ) and c.(BooleanCompletion).getValue() = false
+    )
+    or
+    last(super.getThen(), pred, c) and
+    succ = this and
+    c instanceof SimpleCompletion
+    or
+    last(super.getElse(), pred, c) and
+    succ = this and
+    c instanceof SimpleCompletion
+  }
+}
+
 private class ForExpressionTree extends PostOrderTree instanceof ForStatement {
   // TODO: This may need to be adjusted since the kaleidoscope version is more of a do-while construct i.e. post-order
   override predicate propagatesAbnormal(AstNode child) { none() }
@@ -245,9 +238,20 @@ private class ForExpressionTree extends PostOrderTree instanceof ForStatement {
   }
 }
 
+private class FunctionDefinitionTree extends LeafTree instanceof FunctionDefinition { }
+
+private class BooleanLiteralTree extends LeafTree instanceof BooleanLiteral { }
+
 private class NumberTree extends LeafTree instanceof NumberLiteral { }
 
+private class StringLiteralTree extends LeafTree instanceof StringLiteral { }
+
+private class HexLiteralTree extends LeafTree instanceof HexStringLiteral { }
+
+private class UnicodeLiteralTree extends LeafTree instanceof UnicodeStringLiteral { }
+
 private class ParenExpressionTree extends StandardPostOrderTree instanceof ParenthesizedExpression {
+  // The internal expression is handled by a separate expression parsing CFG class, we just need to parse the child node
   override ControlFlowTree getChildNode(int i) { result = super.getChild() and i = 0 }
 }
 
@@ -255,4 +259,54 @@ private class UnaryOpExpressionTree extends StandardPostOrderTree instanceof Una
   override ControlFlowTree getChildNode(int i) { result = super.getArgument() and i = 0 }
 }
 
-// TODO: The rest of the statement and expression trees need to be implemented
+private class BinaryOpExpressionTree extends StandardPostOrderTree instanceof BinaryExpression {
+  override ControlFlowTree getChildNode(int i) {
+    result = super.getLeft() and i = 0
+    or
+    result = super.getRight() and i = 1
+  }
+}
+
+private class TupleOpExpressionTree extends StandardPostOrderTree instanceof TupleExpression {
+  override ControlFlowTree getChildNode(int i) { result = super.getChild(i) }
+}
+
+private class NewExpressionTree extends StandardPostOrderTree instanceof NewExpression {
+  override ControlFlowTree getChildNode(int i) { result = super.getArgument(i) }
+}
+
+private class ArrayAccessTree extends StandardPostOrderTree instanceof ArrayAccess {
+  override ControlFlowTree getChildNode(int i) {
+    result = super.getBase() and i = 0
+    or
+    result = super.getIndex() and i = 1
+  }
+}
+
+private class AssignmentExpressionTree extends StandardPostOrderTree instanceof AssignmentExpression {
+  override ControlFlowTree getChildNode(int i) {
+    result = super.getLeft() and i = 0
+    or
+    result = super.getRight() and i = 1
+  }
+}
+
+private class AugmentedAssignmentExpressionTree extends StandardPostOrderTree instanceof AugmentedAssignmentExpression {
+  override ControlFlowTree getChildNode(int i) {
+    result = super.getLeft() and i = 0
+    or
+    result = super.getRight() and i = 1
+  }
+}
+
+private class FunctionCallExpressionTree extends StandardPostOrderTree instanceof CallExpression
+{
+  override ControlFlowTree getChildNode(int i) { result = super.getArgument(i) }
+}
+
+private class MemberExpressionTree extends StandardPostOrderTree instanceof MemberExpression {
+  // The property identifier in a MemberExpression is not a node, so just need to get the object
+  override ControlFlowTree getChildNode(int i) { result = super.getObject() and i = 0 }
+}
+
+// TODO: Leaving Yul nodes out for now, to implement later
