@@ -3,6 +3,7 @@ private import solidity.ast.internal.Ast
 private import Ast
 private import Locations
 private import Token
+private import Call
 
 /* Derivations of the Statement and YulStatement classes are defined here */
 
@@ -16,6 +17,8 @@ class BlockStatement extends TBlockStatement, Statement, AstNodeImpl {
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild(_)
   }
+
+  AstNode getChild(int i) { toTreeSitter(result) = node.getChild(i) }
 
   override string toString() { result = node.toString() }
 
@@ -58,6 +61,8 @@ class EmitStatement extends TEmitStatement, Statement, AstNodeImpl {
   }
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
+
+  CallArgument getChild(int i) { toTreeSitter(result) = node.getChild(i) }
 
   override string toString() { result = node.toString() }
 
@@ -182,6 +187,32 @@ class TryStatement extends TTryStatement, Statement, AstNodeImpl {
   override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
+
+  Expression getAttempt() { toTreeSitter(result) = node.getAttempt() }
+
+  BlockStatement getBody() { toTreeSitter(result) = node.getBody() }
+
+  AstNode getChild(int i) { toTreeSitter(result) = node.getChild(i) }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
+class VariableDeclarationStatement extends TVariableDeclarationStatement, Statement, AstNodeImpl {
+  private Solidity::VariableDeclarationStatement node;
+
+  VariableDeclarationStatement() { this = TVariableDeclarationStatement(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
+
+  AstNode getChild() { toTreeSitter(result) = node.getChild() }
+
+  Expression getValue() { toTreeSitter(result) = node.getValue() }
 
   override string toString() { result = node.toString() }
 

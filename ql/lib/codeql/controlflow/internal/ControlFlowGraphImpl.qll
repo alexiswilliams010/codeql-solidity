@@ -10,6 +10,7 @@ module Completion {
     TBooleanCompletion(boolean b) { b in [false, true] } or
     TReturnCompletion() or
     TBreakCompletion() or
+    TContinueCompletion() or
     TRevertCompletion() // revert, assert, require - even though assert technically causes a panic
 
   abstract class Completion extends TCompletion {
@@ -66,6 +67,14 @@ module Completion {
     override predicate isValidForSpecific(AstNode e) { e instanceof BreakStatement }
 
     override BreakSuccessor getAMatchingSuccessorType() { any() }
+  }
+
+  class ContinueCompletion extends Completion, TContinueCompletion {
+    override string toString() { result = "ContinueCompletion" }
+
+    override predicate isValidForSpecific(AstNode e) { e instanceof ContinueStatement }
+
+    override ContinueSuccessor getAMatchingSuccessorType() { any() }
   }
 
   class RevertCompletion extends Completion, TRevertCompletion {
@@ -211,14 +220,13 @@ private class TernaryExpressionTree extends PostOrderTree instanceof TernaryExpr
 }
 
 private class ForExpressionTree extends PostOrderTree instanceof ForStatement {
-  // TODO: This may need to be adjusted since the kaleidoscope version is more of a do-while construct i.e. post-order
   override predicate propagatesAbnormal(AstNode child) { none() }
 
   override predicate first(AstNode first) { first(super.getInitial(), first) }
 
   override predicate succ(AstNode pred, AstNode succ, Completion c) {
     last(super.getInitial(), pred, c) and
-    first(super.getBody(), succ) and
+    first(super.getCondition(), succ) and
     c instanceof SimpleCompletion
     or
     last(super.getCondition(), pred, c) and
@@ -237,6 +245,101 @@ private class ForExpressionTree extends PostOrderTree instanceof ForStatement {
     c instanceof SimpleCompletion
   }
 }
+
+private class WhileStatementTree extends PostOrderTree instanceof WhileStatement {
+  override predicate propagatesAbnormal(AstNode child) { none() }
+
+  override predicate first(AstNode first) { first(super.getCondition(), first) }
+
+  override predicate succ(AstNode pred, AstNode succ, Completion c) {
+    last(super.getCondition(), pred, c) and
+    (
+      first(super.getBody(), succ) and c.(BooleanCompletion).getValue() = true
+      or
+      succ = this and c.(BooleanCompletion).getValue() = false
+    )
+    or
+    last(super.getBody(), pred, c) and
+    first(super.getCondition(), succ) and
+    c instanceof SimpleCompletion
+  }
+}
+
+private class DoWhileStatementTree extends PostOrderTree instanceof DoWhileStatement {
+  override predicate propagatesAbnormal(AstNode child) { none() }
+
+  override predicate first(AstNode first) { first(super.getBody(), first) }
+
+  override predicate succ(AstNode pred, AstNode succ, Completion c) {
+    last(super.getBody(), pred, c) and
+    first(super.getCondition(), succ) and
+    c instanceof SimpleCompletion
+    or
+    last(super.getCondition(), pred, c) and
+    (
+      first(super.getBody(), succ) and c.(BooleanCompletion).getValue() = true
+      or
+      succ = this and c.(BooleanCompletion).getValue() = false
+    )
+  }
+}
+
+private class TryStatementTree extends PostOrderTree instanceof TryStatement {
+  override predicate propagatesAbnormal(AstNode child) { none() }
+
+  override predicate first(AstNode first) { first(super.getAttempt(), first) }
+
+  override predicate succ(AstNode pred, AstNode succ, Completion c) {
+    // If attempt succeeds, go to success body
+    last(super.getAttempt(), pred, c) and
+    first(super.getBody(), succ) and
+    c instanceof SimpleCompletion
+    or
+    // If attempt throws, go to first catch clause (simplified - assume catch clauses are children)
+    last(super.getAttempt(), pred, c) and
+    first(super.getChild(0), succ) and
+    c instanceof RevertCompletion
+    or
+    // Success body completes normally
+    last(super.getBody(), pred, c) and
+    succ = this and
+    c instanceof SimpleCompletion
+    or
+    // Catch clause completes normally
+    last(super.getChild(_), pred, c) and
+    succ = this and
+    c instanceof SimpleCompletion
+  }
+}
+
+private class BlockStatementTree extends StandardPostOrderTree instanceof BlockStatement {
+  override ControlFlowTree getChildNode(int i) { result = super.getChild(i) }
+}
+
+private class ExpressionStatementTree extends StandardPostOrderTree instanceof ExpressionStatement {
+  override ControlFlowTree getChildNode(int i) { result = super.getAChild() and i = 0 }
+}
+
+private class ReturnStatementTree extends StandardPostOrderTree instanceof ReturnStatement {
+  override ControlFlowTree getChildNode(int i) { result = super.getChild() and i = 0 }
+}
+
+private class RevertStatementTree extends StandardPostOrderTree instanceof RevertStatement {
+  override ControlFlowTree getChildNode(int i) { result = super.getError() and i = 0 }
+}
+
+private class EmitStatementTree extends StandardPostOrderTree instanceof EmitStatement {
+  override ControlFlowTree getChildNode(int i) { result = super.getChild(i) }
+}
+
+private class VariableDeclarationStatementTree extends StandardPostOrderTree instanceof VariableDeclarationStatement {
+  // Only evaluate the initializer value if present; the declaration itself is not evaluated
+  override ControlFlowTree getChildNode(int i) { result = super.getValue() and i = 0 }
+}
+
+private class BreakStatementTree extends LeafTree instanceof BreakStatement { }
+
+private class ContinueStatementTree extends LeafTree instanceof ContinueStatement { }
 
 private class FunctionDefinitionTree extends LeafTree instanceof FunctionDefinition { }
 
