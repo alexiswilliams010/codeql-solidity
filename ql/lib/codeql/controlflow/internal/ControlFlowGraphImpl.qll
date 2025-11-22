@@ -283,6 +283,10 @@ private class ArrayAccessTree extends StandardPostOrderTree instanceof ArrayAcce
   }
 }
 
+private class InlineArrayExpressionTree extends StandardPostOrderTree instanceof InlineArrayExpression {
+  override ControlFlowTree getChildNode(int i) { result = super.getChild(i) }
+}
+
 private class AssignmentExpressionTree extends StandardPostOrderTree instanceof AssignmentExpression {
   override ControlFlowTree getChildNode(int i) {
     result = super.getLeft() and i = 0
@@ -307,6 +311,33 @@ private class FunctionCallExpressionTree extends StandardPostOrderTree instanceo
 private class MemberExpressionTree extends StandardPostOrderTree instanceof MemberExpression {
   // The property identifier in a MemberExpression is not a node, so just need to get the object
   override ControlFlowTree getChildNode(int i) { result = super.getObject() and i = 0 }
+}
+
+private class PayableConversionExpressionTree extends StandardPostOrderTree instanceof PayableConversionExpression {
+  override ControlFlowTree getChildNode(int i) { result = super.getChild(i) }
+}
+
+private class SliceAccessTree extends StandardPostOrderTree instanceof SliceAccess {
+  override ControlFlowTree getChildNode(int i) {
+    result = super.getBase() and i = 0
+    or
+    result = super.getFrom() and i = 1
+    or
+    result = super.getTo() and i = 2
+  }
+}
+
+private class StructExpressionTree extends StandardPostOrderTree instanceof StructExpression {
+  override ControlFlowTree getChildNode(int i) { result = super.getChild(i) }
+}
+
+private class TypeCastExpressionTree extends StandardPostOrderTree instanceof TypeCastExpression {
+  // Only evaluate the value being cast (child 1), not the type (child 0) which is static
+  override ControlFlowTree getChildNode(int i) { result = super.getValue() and i = 0 }
+}
+
+private class UpdateExpressionTree extends StandardPostOrderTree instanceof UpdateExpression {
+  override ControlFlowTree getChildNode(int i) { result = super.getArgument() and i = 0 }
 }
 
 // TODO: Leaving Yul nodes out for now, to implement later

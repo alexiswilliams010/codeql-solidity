@@ -121,6 +121,26 @@ class CallExpression extends TCallExpression, Expression, AstNodeImpl {
   override Location getLocation() { result = node.getLocation() }
 }
 
+class InlineArrayExpression extends TInlineArrayExpression, Expression, AstNodeImpl {
+  private Solidity::InlineArrayExpression node;
+
+  InlineArrayExpression() { this = TInlineArrayExpression(node) }
+  
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { 
+    toTreeSitter(result) = node.getChild(_)
+  }
+
+  Expression getChild(int i) { toTreeSitter(result) = node.getChild(i) }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
 class MemberExpression extends TMemberExpression, Expression, AstNodeImpl {
   private Solidity::MemberExpression node;
 
@@ -188,6 +208,75 @@ class ParenthesizedExpression extends TParenthesizedExpression, Expression, AstN
   override Location getLocation() { result = node.getLocation() }
 }
 
+class PayableConversionExpression extends TPayableConversionExpression, Expression, AstNodeImpl {
+  private Solidity::PayableConversionExpression node;
+
+  PayableConversionExpression() { this = TPayableConversionExpression(node) }
+  
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { 
+    toTreeSitter(result) = node.getChild(_)
+  }
+
+  CallArgument getChild(int i) { toTreeSitter(result) = node.getChild(i) }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
+class SliceAccess extends TSliceAccess, Expression, AstNodeImpl {
+  private Solidity::SliceAccess node;
+
+  SliceAccess() { this = TSliceAccess(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() {
+    toTreeSitter(result) = node.getBase() or 
+    toTreeSitter(result) = node.getFrom() or 
+    toTreeSitter(result) = node.getTo()
+  }
+
+  Expression getBase() { toTreeSitter(result) = node.getBase() }
+
+  Expression getFrom() { toTreeSitter(result) = node.getFrom() }
+
+  Expression getTo() { toTreeSitter(result) = node.getTo() }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
+class StructExpression extends TStructExpression, Expression, AstNodeImpl {
+  private Solidity::StructExpression node;
+
+  StructExpression() { this = TStructExpression(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() {
+    toTreeSitter(result) = node.getType() or 
+    toTreeSitter(result) = node.getChild(_)
+  }
+
+  Expression getType() { toTreeSitter(result) = node.getType() }
+
+  AstNode getChild(int i) { toTreeSitter(result) = node.getChild(i) }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
 class TernaryExpression extends TTernaryExpression, Expression, AstNodeImpl {
   private Solidity::TernaryExpression node;
 
@@ -206,6 +295,32 @@ class TernaryExpression extends TTernaryExpression, Expression, AstNodeImpl {
   Expression getThen() { result = this.getChild(1) }
 
   Expression getElse() { result = this.getChild(2) }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
+class TypeCastExpression extends TTypeCastExpression, Expression, AstNodeImpl {
+  private Solidity::TypeCastExpression node;
+
+  TypeCastExpression() { this = TTypeCastExpression(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { 
+    toTreeSitter(result) = node.getChild(_)
+  }
+
+  AstNode getChild(int i) { toTreeSitter(result) = node.getChild(i) }
+
+  // The type being cast to (e.g., uint256, address)
+  AstNode getType() { toTreeSitter(result) = node.getChild(0) }
+
+  // The value being cast (wrapped in CallArgument)
+  CallArgument getValue() { toTreeSitter(result) = node.getChild(1) }
 
   override string toString() { result = node.toString() }
 
@@ -242,6 +357,26 @@ class UnaryExpression extends TUnaryExpression, Expression, AstNodeImpl {
   override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
+
+  Expression getArgument() { toTreeSitter(result) = node.getArgument() }
+
+  string getOperator() { result = node.getOperator() }
+
+  override string toString() { result = this.getOperator() + "..." }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
+class UpdateExpression extends TUpdateExpression, Expression, AstNodeImpl {
+  private Solidity::UpdateExpression node;
+
+  UpdateExpression() { this = TUpdateExpression(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getArgument() }
 
   Expression getArgument() { toTreeSitter(result) = node.getArgument() }
 
