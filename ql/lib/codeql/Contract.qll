@@ -6,6 +6,24 @@ private import Token
 
 /* Contains classes related to Smart Contracts */
 
+class ContractBody extends TContractBody, AstNode, AstNodeImpl {
+  private Solidity::ContractBody node;
+
+  ContractBody() { this = TContractBody(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getChild(_) }
+
+  AstNode getChild(int i) { toTreeSitter(result) = node.getChild(i) }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
 class ContractDeclaration extends TContractDeclaration, AstNode, AstNodeImpl {
   private Solidity::ContractDeclaration node;
 

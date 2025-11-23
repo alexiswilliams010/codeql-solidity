@@ -674,6 +674,8 @@ class TStatement =
   or
   TTryStatement
   or
+  TVariableDeclarationStatement
+  or
   TWhileStatement;
 
 class TYulStatement = 

@@ -3,6 +3,7 @@ private import solidity.ast.internal.Ast
 private import Ast
 private import Locations
 private import Token
+private import Call
 
 /* Derivations of the Statement and YulStatement classes are defined here */
 
@@ -16,6 +17,8 @@ class BlockStatement extends TBlockStatement, Statement, AstNodeImpl {
   override AstNode getAChild() { 
     toTreeSitter(result) = node.getChild(_)
   }
+
+  AstNode getChild(int i) { toTreeSitter(result) = node.getChild(i) }
 
   override string toString() { result = node.toString() }
 
@@ -58,6 +61,8 @@ class EmitStatement extends TEmitStatement, Statement, AstNodeImpl {
   }
 
   AstNode getName() { toTreeSitter(result) = node.getName() }
+
+  CallArgument getChild(int i) { toTreeSitter(result) = node.getChild(i) }
 
   override string toString() { result = node.toString() }
 
@@ -116,12 +121,18 @@ class IfStatement extends TIfStatement, Statement, AstNodeImpl {
   override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { 
-    toTreeSitter(result) = node.getBody(_) or toTreeSitter(result) = node.getCondition() or toTreeSitter(result) = node.getElse()
+    toTreeSitter(result) = node.getBody(_) or
+    toTreeSitter(result) = node.getCondition() or
+    toTreeSitter(result) = node.getElse()
   }
 
-  AstNode getCondition() { toTreeSitter(result) = node.getCondition() }
+  Expression getCondition() { toTreeSitter(result) = node.getCondition() }
 
-  AstNode getElse() { toTreeSitter(result) = node.getElse() }
+  Statement getThen() { toTreeSitter(result) = node.getBody(0) }
+
+  Statement getElse() { toTreeSitter(result) = node.getBody(1) }
+
+  ReservedWord getElseKeyword() { toTreeSitter(result) = node.getElse() }
 
   override string toString() { result = node.toString() }
 
@@ -177,6 +188,32 @@ class TryStatement extends TTryStatement, Statement, AstNodeImpl {
 
   override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
+  Expression getAttempt() { toTreeSitter(result) = node.getAttempt() }
+
+  BlockStatement getBody() { toTreeSitter(result) = node.getBody() }
+
+  AstNode getChild(int i) { toTreeSitter(result) = node.getChild(i) }
+
+  override string toString() { result = node.toString() }
+
+  override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
+
+  override Location getLocation() { result = node.getLocation() }
+}
+
+class VariableDeclarationStatement extends TVariableDeclarationStatement, Statement, AstNodeImpl {
+  private Solidity::VariableDeclarationStatement node;
+
+  VariableDeclarationStatement() { this = TVariableDeclarationStatement(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getAFieldOrChild() }
+
+  AstNode getChild() { toTreeSitter(result) = node.getChild() }
+
+  Expression getValue() { toTreeSitter(result) = node.getValue() }
+
   override string toString() { result = node.toString() }
 
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
@@ -202,4 +239,41 @@ class WhileStatement extends TWhileStatement, Statement, AstNodeImpl {
   override string getAPrimaryQlClass() { result = node.getAPrimaryQlClass() }
 
   override Location getLocation() { result = node.getLocation() }
+}
+
+// Statements that derive from Token which roll into AstNode
+class BreakStatement extends TBreakStatement, AstNode, AstNodeImpl {
+  private SolToken node;
+
+  BreakStatement() { this = TBreakStatement(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
+
+  override string toString() { result = toToken(node).toString() }
+
+  string getValue() { result = toToken(node).getValue() }
+
+  override string getAPrimaryQlClass() { result = toToken(node).getAPrimaryQlClass() }
+
+  override Location getLocation() { result = toToken(node).getLocation() }
+}
+
+class ContinueStatement extends TContinueStatement, AstNode, AstNodeImpl {
+  private SolToken node;
+
+  ContinueStatement() { this = TContinueStatement(node) }
+
+  override AstNode getParent() { toTreeSitter(result) = toToken(node).getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = toToken(node).getAFieldOrChild() }
+
+  override string toString() { result = toToken(node).toString() }
+
+  string getValue() { result = toToken(node).getValue() }
+
+  override string getAPrimaryQlClass() { result = toToken(node).getAPrimaryQlClass() }
+
+  override Location getLocation() { result = toToken(node).getLocation() }
 }

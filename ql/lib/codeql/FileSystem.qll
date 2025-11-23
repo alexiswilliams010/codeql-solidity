@@ -2,8 +2,7 @@
 overlay[local]
 module;
 
-private import Locations
-private import utils.FileSystem
+private import codeql.util.FileSystem
 
 private module Input implements InputSig {
   abstract class ContainerBase extends @container {
