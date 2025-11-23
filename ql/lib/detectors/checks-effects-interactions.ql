@@ -1,6 +1,6 @@
 /*
- * @name Checks-Effects-Interactions
- * @description Detects code that does not follow CEI, where state variables are written after external calls
+ * @name Checks-Effects-Interactions Pattern Violation
+ * @description Detects state writes after external calls that transfer ETH (potential reentrancy vulnerability)
  * @kind problem
  * @problem.severity warning
  * @id solidity/checks-effects-interactions
@@ -54,37 +54,45 @@ predicate isAnyStateWrite(AssignmentExpression expr) {
 }
 
 /**
- * Holds if the call expression is likely an external call.
- * This includes:
- * - Low-level calls: address.call(), delegatecall(), etc.
- * - Interface calls: IToken(addr).transfer()
- * - Contract instance calls: someContract.method()
+ * Holds if the call expression has a msg.value (transfers ETH).
+ * This checks for the {value: ...} syntax in call options.
  */
-predicate isExternalCall(CallExpression call) {
-  // Any call that uses member expression syntax (obj.method())
-  // Note: getFunction() returns an Expression wrapper, the MemberExpression is its child
-  call.getFunction().getAChild() instanceof MemberExpression
-  or
-  // Calls on type casts, e.g., IToken(addr).transfer() or ContractType(addr).method()
-  // The function is accessed via a member expression on a type cast
-  exists(TypeCastExpression typeCast |
-    typeCast.getParent+() = call.getFunction().getAChild()
+predicate hasValue(CallExpression call) {
+  // Look for CallArgument that contains a struct field assignment for "value"
+  exists(AstNode arg |
+    arg = call.getAChild() and
+    exists(Identifier fieldName |
+      fieldName = arg.getAChild+() and
+      fieldName.getValue() = "value"
+    )
   )
-  or
-  isLowLevelExternalCall(call)
 }
 
 /**
- * Detects low-level external calls like .call(), .delegatecall(), etc.
+ * Holds if the call expression is a state-changing external call.
+ * We focus on calls we know transfer value:
+ * - Low-level calls with value: addr.call{value: amount}()
+ * - Interface/contract calls with value: IToken(addr).method{value: amount}()
+ * 
+ * Note: We exclude transfer/send
  */
-predicate isLowLevelExternalCall(CallExpression call) {
-  exists(MemberExpression memberExpr, Identifier method |
-    memberExpr = call.getFunction().getAChild() and
+predicate isStateChangingExternalCall(CallExpression call) {
+  // Calls with {value: ...} are wrapped in a StructExpression
+  // The actual .call or .method is in the StructExpression's type (as an Expression wrapper)
+  // Structure: CallExpression -> Expression -> StructExpression -> Expression (type) -> MemberExpression
+  exists(StructExpression structExpr, MemberExpression memberExpr, Identifier method |
+    structExpr = call.getFunction().getAChild() and
+    memberExpr = structExpr.getType().getAChild() and
     method = memberExpr.getProperty() and
-    (
-      method.getValue() = "call" or
-      method.getValue() = "delegatecall"
-    )
+    method.getValue() = "call" and
+    hasValue(call)
+  )
+  or
+  // Also catch any other call with value (interface calls with value)
+  exists(StructExpression structExpr, MemberExpression memberExpr |
+    structExpr = call.getFunction().getAChild() and
+    memberExpr = structExpr.getType().getAChild() and
+    hasValue(call)
   )
 }
 
@@ -92,8 +100,8 @@ from AssignmentExpression stateWrite, CallExpression externalCall
 where
   // The assignment writes to a state variable
   isAnyStateWrite(stateWrite) and
-  // The call is an external call
-  isExternalCall(externalCall) and
+  // The call is a state-changing external call (transfers value or can modify state)
+  isStateChangingExternalCall(externalCall) and
   // Check if the external call happens before the state write in the control flow
   exists(Node callStmt, Node writeStmt, FunctionDefinition func |
     // Expressions are wrapped: AssignmentExpression -> Expression -> ExpressionStatement
@@ -105,5 +113,5 @@ where
     // The call statement reaches the write statement in control flow
     callStmt.getASuccessor+() = writeStmt
   )
-select stateWrite, "State variable modified after external call at line " +
-  externalCall.getLocation().getStartLine() + ", violating Checks-Effects-Interactions pattern"
+select stateWrite, "State variable modified after external call with value transfer at line " +
+  externalCall.getLocation().getStartLine() + " (reentrancy risk - violates Checks-Effects-Interactions pattern)"
