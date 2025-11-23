@@ -122,9 +122,9 @@ private module Implementation implements CfgShared::InputSig<Location> {
   // Not using CFG splitting, so the following are just dummy types.
   private newtype TUnit = Unit()
 
-  class SplitKindBase = TUnit;
+  additional class SplitKindBase = TUnit;
 
-  class Split extends TUnit {
+  additional class Split extends TUnit {
     abstract string toString();
   }
 
@@ -140,7 +140,7 @@ private module Implementation implements CfgShared::InputSig<Location> {
     )
   }
 
-  int maxSplits() { result = 0 }
+  additional int maxSplits() { result = 0 }
 
   predicate scopeFirst(CfgScope scope, AstNode e) {
     first(scope.(FunctionDefinition).getBody(), e) or
@@ -158,13 +158,13 @@ private module Implementation implements CfgShared::InputSig<Location> {
     last(scope.(ContractDeclaration).getBody(), e, c)
   }
 
-  predicate successorTypeIsSimple(SuccessorType t) { t instanceof DirectSuccessor }
+  additional predicate successorTypeIsSimple(SuccessorType t) { t instanceof DirectSuccessor }
 
   predicate successorTypeIsCondition(SuccessorType t) { t instanceof BooleanSuccessor }
 
   SuccessorType getAMatchingSuccessorType(Completion c) { result = c.getAMatchingSuccessorType() }
 
-  predicate isAbnormalExitType(SuccessorType t) { t instanceof ExceptionSuccessor }
+  additional predicate isAbnormalExitType(SuccessorType t) { t instanceof ExceptionSuccessor }
 }
 
 module CfgImpl = CfgShared::Make<Location, Implementation>;
