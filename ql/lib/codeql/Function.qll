@@ -102,6 +102,9 @@ class FunctionBody extends TFunctionBody, AstNode, AstNodeImpl {
   override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
   override AstNode getAChild() { toTreeSitter(result) = node.getChild(_) }
+
+  AstNode getChild(int i) { toTreeSitter(result) = node.getChild(i) }
+
   AstNode getAFieldOrChild() { toTreeSitter(result) = node.getAFieldOrChild() }
 
   override string toString() { result = node.toString() }

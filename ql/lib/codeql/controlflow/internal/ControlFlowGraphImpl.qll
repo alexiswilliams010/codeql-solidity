@@ -56,7 +56,7 @@ module Completion {
   class ReturnCompletion extends Completion, TReturnCompletion {
     override string toString() { result = "ReturnCompletion" }
 
-    override predicate isValidForSpecific(AstNode e) { none() }
+    override predicate isValidForSpecific(AstNode e) { e instanceof ReturnStatement }
 
     override ReturnSuccessor getAMatchingSuccessorType() { any() }
   }
@@ -342,6 +342,17 @@ private class BreakStatementTree extends LeafTree instanceof BreakStatement { }
 private class ContinueStatementTree extends LeafTree instanceof ContinueStatement { }
 
 private class FunctionDefinitionTree extends LeafTree instanceof FunctionDefinition { }
+
+private class FunctionBodyTree extends StandardPostOrderTree instanceof FunctionBody {
+  override ControlFlowTree getChildNode(int i) {
+    // Unwrap the generic Statement wrapper to get the actual specific statement type
+    result = super.getChild(i).getAChild()
+  }
+}
+
+private class ContractBodyTree extends StandardPostOrderTree instanceof ContractBody {
+  override ControlFlowTree getChildNode(int i) { result = super.getChild(i) }
+}
 
 private class BooleanLiteralTree extends LeafTree instanceof BooleanLiteral { }
 
