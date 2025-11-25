@@ -1,7 +1,12 @@
 use clap::Args;
-use std::path::PathBuf;
-
-use codeql_extractor::{extractor::simple::{Extractor, LanguageSpec}, trap};
+use codeql_extractor::{diagnostics, extractor, file_paths, node_types, trap};
+use foundry_compilers::{Project, ProjectPathsConfig};
+use rayon::prelude::*;
+use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::io::BufRead;
+use std::path::{Path, PathBuf};
+use tree_sitter::Language;
 
 #[derive(Args)]
 pub struct Options {
@@ -26,20 +31,271 @@ pub fn run(options: Options) -> std::io::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    // The shared extractor framework for tree-sitter languages will handle the parsing and extraction.
-    // We just need to specify the language and the node types.
-    let extractor = Extractor {
-        prefix: "solidity".to_string(),
-        source_archive_dir: options.source_archive_dir,
-        trap_dir: options.output_dir,
-        file_lists: vec![options.file_list],
-        languages: vec![LanguageSpec {
-            prefix: "solidity",
-            ts_language: tree_sitter_solidity::LANGUAGE.into(),
-            node_types: tree_sitter_solidity::NODE_TYPES,
-            file_globs: vec!["*.sol".into()],
-        }],
-        trap_compression: trap::Compression::from_env("CODEQL_SOLIDITY_TRAP_COMPRESSION"),
+    tracing::info!("Extraction started");
+    let diagnostics = diagnostics::DiagnosticLoggers::new("solidity");
+    let mut main_thread_logger = diagnostics.logger();
+
+    let num_threads = match codeql_extractor::options::num_threads() {
+        Ok(num) => num,
+        Err(e) => {
+            main_thread_logger.write(
+                main_thread_logger
+                    .new_entry("configuration-error", "Configuration error")
+                    .message(
+                        "{}; defaulting to 1 thread.",
+                        &[diagnostics::MessageArg::Code(&e)],
+                    )
+                    .severity(diagnostics::Severity::Warning),
+            );
+            1
+        }
     };
-    extractor.run()
+    tracing::info!(
+        "Using {} {}",
+        num_threads,
+        if num_threads == 1 {
+            "thread"
+        } else {
+            "threads"
+        }
+    );
+
+    let trap_compression =
+        match trap::Compression::from_env("CODEQL_EXTRACTOR_SOLIDITY_OPTION_TRAP_COMPRESSION") {
+            Ok(x) => x,
+            Err(e) => {
+                main_thread_logger.write(
+                    main_thread_logger
+                        .new_entry("configuration-error", "Configuration error")
+                        .message("{}; using gzip.", &[diagnostics::MessageArg::Code(&e)])
+                        .severity(diagnostics::Severity::Warning),
+                );
+                trap::Compression::Gzip
+            }
+        };
+    drop(main_thread_logger);
+
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_threads)
+        .build_global()
+        .unwrap();
+
+    let src_archive_dir = &options.source_archive_dir;
+    let trap_dir = &options.output_dir;
+
+    let file_list = fs::File::open(&options.file_list)?;
+    let path_transformer = file_paths::load_path_transformer()?;
+
+    let language: Language = tree_sitter_solidity::LANGUAGE.into();
+    let schema = node_types::read_node_types_str("solidity", tree_sitter_solidity::NODE_TYPES)?;
+
+    // Read the initial file list
+    let lines: std::io::Result<Vec<String>> =
+        std::io::BufReader::new(file_list).lines().collect();
+    let initial_files: Vec<PathBuf> = lines?
+        .into_iter()
+        .filter_map(|line| PathBuf::from(line).canonicalize().ok())
+        .filter(|path| path.extension().map(|e| e == "sol").unwrap_or(false))
+        .collect();
+
+    tracing::info!("Initial files to extract: {}", initial_files.len());
+
+    // Attempt to discover and resolve dependencies using foundry-compilers
+    let all_files = discover_dependencies(&initial_files, &diagnostics)?;
+
+    tracing::info!("Total files after dependency resolution: {}", all_files.len());
+
+    // Extract all discovered files
+    all_files
+        .par_iter()
+        .try_for_each(|path| {
+            let mut diagnostics_writer = diagnostics.logger();
+            tracing::info!("extracting: {}", path.display());
+
+            let src_archive_file = file_paths::path_for(
+                src_archive_dir,
+                path,
+                "",
+                path_transformer.as_ref(),
+            );
+            let source = std::fs::read(path)?;
+            let mut trap_writer = trap::Writer::new();
+
+            extractor::extract(
+                &language,
+                "solidity",
+                &schema,
+                &mut diagnostics_writer,
+                &mut trap_writer,
+                path_transformer.as_ref(),
+                path,
+                &source,
+                &[],
+            );
+
+            std::fs::create_dir_all(src_archive_file.parent().unwrap())?;
+            std::fs::copy(path, &src_archive_file)?;
+            write_trap(trap_dir, path.clone(), &trap_writer, trap_compression, path_transformer.as_ref())
+        })
+        .expect("failed to extract files");
+
+    let path = PathBuf::from("extras");
+    let mut trap_writer = trap::Writer::new();
+    extractor::populate_empty_location(&mut trap_writer);
+    let res = write_trap(
+        trap_dir,
+        path,
+        &trap_writer,
+        trap_compression,
+        path_transformer.as_ref(),
+    );
+
+    tracing::info!("Extraction complete");
+    res
+}
+
+fn write_trap(
+    trap_dir: &Path,
+    path: PathBuf,
+    trap_writer: &trap::Writer,
+    trap_compression: trap::Compression,
+    path_transformer: Option<&file_paths::PathTransformer>,
+) -> std::io::Result<()> {
+    let trap_file = file_paths::path_for(
+        trap_dir,
+        &path,
+        trap_compression.extension(),
+        path_transformer,
+    );
+    std::fs::create_dir_all(trap_file.parent().unwrap())?;
+    trap_writer.write_to_file(&trap_file, trap_compression)
+}
+
+/// Discovers all dependencies for the given Solidity files using foundry-compilers
+fn discover_dependencies(
+    initial_files: &[PathBuf],
+    diagnostics: &diagnostics::DiagnosticLoggers,
+) -> std::io::Result<Vec<PathBuf>> {
+    let mut all_files = HashSet::new();
+    let mut diagnostics_writer = diagnostics.logger();
+
+    // Add initial files
+    for file in initial_files {
+        all_files.insert(file.clone());
+    }
+
+    // Try to find project roots and resolve imports
+    let project_roots = find_project_roots(initial_files);
+
+    for root in project_roots {
+        tracing::info!("Attempting to resolve dependencies for project at: {}", root.display());
+
+        // Try to build a Foundry project from this root
+        match try_resolve_with_foundry(&root) {
+            Ok(resolved_files) => {
+                tracing::info!("Resolved {} files using Foundry compiler", resolved_files.len());
+                all_files.extend(resolved_files);
+            }
+            Err(e) => {
+                diagnostics_writer.write(
+                    diagnostics_writer
+                        .new_entry("dependency-resolution-info", "Dependency resolution info")
+                        .message(
+                            "Could not resolve dependencies using Foundry for {}: {}. Will extract only provided files.",
+                            &[
+                                diagnostics::MessageArg::Code(&root.display().to_string()),
+                                diagnostics::MessageArg::Code(&e.to_string())
+                            ],
+                        )
+                        .severity(diagnostics::Severity::Note),
+                );
+                tracing::info!("Could not resolve dependencies for {}: {}", root.display(), e);
+            }
+        }
+    }
+
+    // If we couldn't resolve anything, just return the initial files
+    if all_files.is_empty() {
+        all_files.extend(initial_files.iter().cloned());
+    }
+
+    Ok(all_files.into_iter().collect())
+}
+
+/// Find potential project roots from the given files
+fn find_project_roots(files: &[PathBuf]) -> Vec<PathBuf> {
+    let mut roots = HashMap::new();
+
+    for file in files {
+        if let Some(root) = find_project_root(file) {
+            roots.insert(root.clone(), root);
+        }
+    }
+
+    roots.into_values().collect()
+}
+
+/// Find a project root by looking for foundry.toml or hardhat.config.ts
+fn find_project_root(file: &Path) -> Option<PathBuf> {
+    let mut current = file.parent()?;
+
+    loop {
+        // Check for common Solidity project files
+        if current.join("foundry.toml").exists()
+            || current.join("hardhat.config.ts").exists()
+        {
+            return Some(current.to_path_buf());
+        }
+
+        current = current.parent()?;
+    }
+}
+
+/// Try to resolve dependencies using foundry-compilers
+fn try_resolve_with_foundry(root: &Path) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    // Try to detect the project structure
+    let paths = if root.join("foundry.toml").exists() {
+        // Foundry project
+        ProjectPathsConfig::builder()
+            .root(root)
+            .sources(root.join("src"))
+            .build()
+            .map_err(|e| format!("Failed to build Foundry paths config: {}", e))?
+    } else if root.join("hardhat.config.ts").exists() {
+        // Hardhat project
+        ProjectPathsConfig::builder()
+            .root(root)
+            .sources(root.join("contracts"))
+            .build()
+            .map_err(|e| format!("Failed to build Hardhat paths config: {}", e))?
+    } else {
+        // Default structure
+        ProjectPathsConfig::builder()
+            .root(root)
+            .sources(root)
+            .build()
+            .map_err(|e| format!("Failed to build default paths config: {}", e))?
+    };
+
+    tracing::info!(
+        "Building project with sources at: {}",
+        paths.sources.display()
+    );
+
+    let project = Project::builder()
+        .paths(paths)
+        .build(Default::default())
+        .map_err(|e| format!("Failed to build project: {}", e))?;
+
+    // Get all source files from the project
+    let mut files = Vec::new();
+
+    // Collect files from sources
+    for source in project.paths.input_files() {
+        if source.extension().map(|e| e == "sol").unwrap_or(false) {
+            files.push(source.clone());
+        }
+    }
+
+    Ok(files)
 }
