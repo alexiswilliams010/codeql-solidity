@@ -1,6 +1,7 @@
 use clap::Args;
 use codeql_extractor::{diagnostics, extractor, file_paths, node_types, trap};
-use foundry_compilers::{Project, ProjectPathsConfig};
+use foundry_compilers::{Graph, ProjectPathsConfig};
+use foundry_compilers::compilers::multi::MultiCompilerParser;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -108,9 +109,17 @@ pub fn run(options: Options) -> std::io::Result<()> {
     // Extract all discovered files
     all_files
         .par_iter()
-        .try_for_each(|path| {
+        .try_for_each(|path| -> std::io::Result<()> {
             let mut diagnostics_writer = diagnostics.logger();
             tracing::info!("extracting: {}", path.display());
+
+            // Check if file exists before processing
+            if !path.exists() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("File does not exist: {}", path.display())
+                ));
+            }
 
             let src_archive_file = file_paths::path_for(
                 src_archive_dir,
@@ -118,7 +127,14 @@ pub fn run(options: Options) -> std::io::Result<()> {
                 "",
                 path_transformer.as_ref(),
             );
-            let source = std::fs::read(path)?;
+            
+            let source = std::fs::read(path).map_err(|e| {
+                std::io::Error::new(
+                    e.kind(),
+                    format!("Failed to read file {}: {}", path.display(), e)
+                )
+            })?;
+            
             let mut trap_writer = trap::Writer::new();
 
             extractor::extract(
@@ -133,11 +149,26 @@ pub fn run(options: Options) -> std::io::Result<()> {
                 &[],
             );
 
-            std::fs::create_dir_all(src_archive_file.parent().unwrap())?;
-            std::fs::copy(path, &src_archive_file)?;
+            std::fs::create_dir_all(src_archive_file.parent().unwrap()).map_err(|e| {
+                std::io::Error::new(
+                    e.kind(),
+                    format!("Failed to create directory {}: {}", src_archive_file.parent().unwrap().display(), e)
+                )
+            })?;
+            
+            std::fs::copy(path, &src_archive_file).map_err(|e| {
+                std::io::Error::new(
+                    e.kind(),
+                    format!("Failed to copy {} to {}: {}", path.display(), src_archive_file.display(), e)
+                )
+            })?;
+            
             write_trap(trap_dir, path.clone(), &trap_writer, trap_compression, path_transformer.as_ref())
         })
-        .expect("failed to extract files");
+        .map_err(|e| {
+            tracing::error!("Failed to extract files: {}", e);
+            e
+        })?;
 
     let path = PathBuf::from("extras");
     let mut trap_writer = trap::Writer::new();
@@ -214,11 +245,6 @@ fn discover_dependencies(
         }
     }
 
-    // If we couldn't resolve anything, just return the initial files
-    if all_files.is_empty() {
-        all_files.extend(initial_files.iter().cloned());
-    }
-
     Ok(all_files.into_iter().collect())
 }
 
@@ -254,7 +280,7 @@ fn find_project_root(file: &Path) -> Option<PathBuf> {
 /// Try to resolve dependencies using foundry-compilers
 fn try_resolve_with_foundry(root: &Path) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
     // Try to detect the project structure
-    let paths = if root.join("foundry.toml").exists() {
+    let paths: ProjectPathsConfig = if root.join("foundry.toml").exists() {
         // Foundry project
         ProjectPathsConfig::builder()
             .root(root)
@@ -282,19 +308,16 @@ fn try_resolve_with_foundry(root: &Path) -> Result<Vec<PathBuf>, Box<dyn std::er
         paths.sources.display()
     );
 
-    let project = Project::builder()
-        .paths(paths)
-        .build(Default::default())
-        .map_err(|e| format!("Failed to build project: {}", e))?;
+    // Retrieve the graph of all source files, dependencies, and imports
+    let graph: Graph<MultiCompilerParser> = Graph::resolve(&paths)?;
 
     // Get all source files from the project
     let mut files = Vec::new();
 
-    // Collect files from sources
-    for source in project.paths.input_files() {
-        if source.extension().map(|e| e == "sol").unwrap_or(false) {
-            files.push(source.clone());
-        }
+    // Collect files from the resolved graph
+    for file_path in graph.files().keys() {
+        tracing::debug!("Found source file: {}", file_path.display());
+        files.push(file_path.clone());
     }
 
     Ok(files)
