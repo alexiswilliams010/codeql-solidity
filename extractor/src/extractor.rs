@@ -101,8 +101,11 @@ pub fn run(options: Options) -> std::io::Result<()> {
 
     tracing::info!("Initial files to extract: {}", initial_files.len());
 
+    // Get the source root from current working directory (set by CodeQL)
+    let source_root = std::env::current_dir().ok();
+    
     // Attempt to discover and resolve dependencies using foundry-compilers
-    let all_files = discover_dependencies(&initial_files, &diagnostics)?;
+    let all_files = discover_dependencies(&initial_files, &diagnostics, source_root.as_ref())?;
 
     tracing::info!("Total files after dependency resolution: {}", all_files.len());
 
@@ -127,14 +130,14 @@ pub fn run(options: Options) -> std::io::Result<()> {
                 "",
                 path_transformer.as_ref(),
             );
-            
+
             let source = std::fs::read(path).map_err(|e| {
                 std::io::Error::new(
                     e.kind(),
                     format!("Failed to read file {}: {}", path.display(), e)
                 )
             })?;
-            
+
             let mut trap_writer = trap::Writer::new();
 
             extractor::extract(
@@ -155,14 +158,14 @@ pub fn run(options: Options) -> std::io::Result<()> {
                     format!("Failed to create directory {}: {}", src_archive_file.parent().unwrap().display(), e)
                 )
             })?;
-            
+
             std::fs::copy(path, &src_archive_file).map_err(|e| {
                 std::io::Error::new(
                     e.kind(),
                     format!("Failed to copy {} to {}: {}", path.display(), src_archive_file.display(), e)
                 )
             })?;
-            
+
             write_trap(trap_dir, path.clone(), &trap_writer, trap_compression, path_transformer.as_ref())
         })
         .map_err(|e| {
@@ -206,12 +209,19 @@ fn write_trap(
 fn discover_dependencies(
     initial_files: &[PathBuf],
     diagnostics: &diagnostics::DiagnosticLoggers,
+    source_root: Option<&PathBuf>,
 ) -> std::io::Result<Vec<PathBuf>> {
     let mut all_files = HashSet::new();
     let mut diagnostics_writer = diagnostics.logger();
 
-    // Try to find project roots and resolve imports
-    let project_roots = find_project_roots(initial_files);
+    // Use provided source root (from current working directory set by CodeQL) or infer from files
+    let project_roots = if let Some(root) = source_root {
+        tracing::info!("Using source root from current working directory: {}", root.display());
+        vec![root.clone()]
+    } else {
+        tracing::info!("No source root available, inferring from files");
+        find_project_roots(initial_files)
+    };
 
     for root in project_roots {
         tracing::info!("Attempting to resolve dependencies for project at: {}", root.display());
