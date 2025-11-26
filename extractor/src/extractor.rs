@@ -3,7 +3,6 @@ use codeql_extractor::{diagnostics, extractor, file_paths, node_types, trap};
 use foundry_compilers::{Graph, ProjectPathsConfig};
 use foundry_compilers::compilers::multi::MultiCompilerParser;
 use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
@@ -211,26 +210,18 @@ fn discover_dependencies(
     diagnostics: &diagnostics::DiagnosticLoggers,
     source_root: Option<&PathBuf>,
 ) -> std::io::Result<Vec<PathBuf>> {
-    let mut all_files = HashSet::new();
     let mut diagnostics_writer = diagnostics.logger();
 
-    // Use provided source root (from current working directory set by CodeQL) or infer from files
-    let project_roots = if let Some(root) = source_root {
+    // Use provided source root (from current working directory set by CodeQL)
+    if let Some(root) = source_root {
         tracing::info!("Using source root from current working directory: {}", root.display());
-        vec![root.clone()]
-    } else {
-        tracing::info!("No source root available, inferring from files");
-        find_project_roots(initial_files)
-    };
-
-    for root in project_roots {
         tracing::info!("Attempting to resolve dependencies for project at: {}", root.display());
 
         // Try to build a Foundry project from this root
-        match try_resolve_with_foundry(&root) {
+        match try_resolve_with_foundry(root) {
             Ok(resolved_files) => {
                 tracing::info!("Resolved {} files using Foundry compiler", resolved_files.len());
-                all_files.extend(resolved_files);
+                return Ok(resolved_files);
             }
             Err(e) => {
                 diagnostics_writer.write(
@@ -248,51 +239,15 @@ fn discover_dependencies(
                 tracing::info!("Could not resolve dependencies for {}: {}", root.display(), e);
             }
         }
+    } else {
+        tracing::info!("No source root available from current working directory");
     }
 
-    // If we couldn't resolve anything, just return the initial files
-    if all_files.is_empty() {
-      all_files.extend(initial_files.iter().cloned());
-    }
-
-    Ok(all_files.into_iter().collect())
+    // Fallback: return the initial files if dependency resolution fails or no source root
+    tracing::info!("Using initial file list without dependency resolution");
+    Ok(initial_files.to_vec())
 }
 
-/// Find potential project roots from the given files
-fn find_project_roots(files: &[PathBuf]) -> Vec<PathBuf> {
-    let mut roots = HashMap::new();
-
-    for file in files {
-        if let Some(root) = find_project_root(file) {
-            roots.insert(root.clone(), root);
-        }
-    }
-
-    roots.into_values().collect()
-}
-
-/// Find a project root by looking for foundry.toml or hardhat.config.ts
-/// Excludes lib directories to avoid processing dependencies as separate projects
-fn find_project_root(file: &Path) -> Option<PathBuf> {
-    let mut current = file.parent()?;
-
-    loop {
-        // Skip if we're in a lib directory (dependency)
-        if current.to_string_lossy().contains("/lib/") {
-            current = current.parent()?;
-            continue;
-        }
-
-        // Check for common Solidity project files
-        if current.join("foundry.toml").exists()
-            || current.join("hardhat.config.ts").exists()
-        {
-            return Some(current.to_path_buf());
-        }
-
-        current = current.parent()?;
-    }
-}
 
 /// Try to resolve dependencies using foundry-compilers
 fn try_resolve_with_foundry(root: &Path) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
