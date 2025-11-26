@@ -210,11 +210,6 @@ fn discover_dependencies(
     let mut all_files = HashSet::new();
     let mut diagnostics_writer = diagnostics.logger();
 
-    // Add initial files
-    for file in initial_files {
-        all_files.insert(file.clone());
-    }
-
     // Try to find project roots and resolve imports
     let project_roots = find_project_roots(initial_files);
 
@@ -245,6 +240,11 @@ fn discover_dependencies(
         }
     }
 
+    // If we couldn't resolve anything, just return the initial files
+    if all_files.is_empty() {
+      all_files.extend(initial_files.iter().cloned());
+    }
+
     Ok(all_files.into_iter().collect())
 }
 
@@ -262,10 +262,17 @@ fn find_project_roots(files: &[PathBuf]) -> Vec<PathBuf> {
 }
 
 /// Find a project root by looking for foundry.toml or hardhat.config.ts
+/// Excludes lib directories to avoid processing dependencies as separate projects
 fn find_project_root(file: &Path) -> Option<PathBuf> {
     let mut current = file.parent()?;
 
     loop {
+        // Skip if we're in a lib directory (dependency)
+        if current.to_string_lossy().contains("/lib/") {
+            current = current.parent()?;
+            continue;
+        }
+
         // Check for common Solidity project files
         if current.join("foundry.toml").exists()
             || current.join("hardhat.config.ts").exists()
