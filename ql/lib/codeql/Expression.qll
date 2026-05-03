@@ -388,3 +388,35 @@ class UpdateExpression extends TUpdateExpression, Expression, AstNodeImpl {
 
   override Location getLocation() { result = node.getLocation() }
 }
+
+/**
+ * An `Expression` whose content is a bare `Identifier` (a variable or function
+ * reference appearing in expression position, e.g. the `x` in `x = 5`,
+ * `foo(x)`, or `return x`).
+ *
+ * In the tree-sitter Solidity grammar, identifiers are tokens that get wrapped
+ * in an unnamed `expression` node when they appear in expression position. This
+ * class represents that wrapper; use `getIdentifier()` to retrieve the inner
+ * `Identifier`.
+ */
+class IdentifierExpression extends TSolExpression, Expression, AstNodeImpl {
+  private Solidity::Expression node;
+
+  IdentifierExpression() {
+    this = TSolExpression(node) and
+    node.getChild() instanceof Solidity::Identifier
+  }
+
+  /** Gets the wrapped `Identifier`. */
+  Identifier getIdentifier() { toTreeSitter(result) = node.getChild() }
+
+  override AstNode getParent() { toTreeSitter(result) = node.getParent() }
+
+  override AstNode getAChild() { toTreeSitter(result) = node.getChild() }
+
+  override string toString() { result = this.getIdentifier().toString() }
+
+  override string getAPrimaryQlClass() { result = "IdentifierExpression" }
+
+  override Location getLocation() { result = node.getLocation() }
+}

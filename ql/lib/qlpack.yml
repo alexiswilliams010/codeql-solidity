@@ -6,6 +6,8 @@ name: alexiswilliams010/solidity
 version: 0.0.1
 dependencies:
   codeql/controlflow: ^2.0.18
+  codeql/dataflow: ^2.1.4
+  codeql/ssa: ^2.0.24
   codeql/util: ^2.0.21
 dbscheme: solidity.dbscheme
 extractor: solidity
