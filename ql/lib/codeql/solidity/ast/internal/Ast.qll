@@ -417,6 +417,10 @@ Solidity::AstNode toTreeSitter(TAstNode node) {
   or
   TCallArgument(result) = node
   or
+  TCallExpression(result) = node
+  or
+  TCallStructArgument(result) = node
+  or
   TCatchClause(result) = node
   or
   TConstantVariableDeclaration(result) = node
