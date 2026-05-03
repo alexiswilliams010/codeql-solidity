@@ -12,6 +12,7 @@ private import codeql.Solidity
 private import codeql.Locations
 private import codeql.dataflow.DataFlow
 private import codeql.Cfg as Cfg
+private import codeql.NameResolution
 private import DataFlowPublic as DataFlowPublic
 private import SsaImpl as Ssa
 
@@ -29,52 +30,29 @@ Cfg::CfgScope astEnclosingCallable(AstNode n) {
   )
 }
 
-/**
- * Gets the textual name being called by `ce`. For `foo(x)` this is `"foo"`;
- * for `obj.foo(x)` this is also `"foo"` (the property name).
- */
-private string calledFunctionName(CallExpression ce) {
-  result = ce.getFunction().(IdentifierExpression).getIdentifier().getValue()
-  or
-  result = ce.getFunction().(MemberExpression).getProperty().getValue()
-}
-
-/** Gets the enclosing `ContractDeclaration` of an AST node, if any. */
-private ContractDeclaration enclosingContract(AstNode n) {
-  result = n.getParent*()
-}
-
-/** Gets a directly-inherited parent contract of `cd`, by name match. */
-private ContractDeclaration directParentContract(ContractDeclaration cd) {
-  exists(InheritanceSpecifier is, Identifier ancestorName |
-    is.getParent*() = cd and
-    ancestorName = is.getAncestor() and
-    result.getName().(Identifier).getValue() = ancestorName.getValue() and
-    result != cd
-  )
-}
-
-/** Gets a (transitive) ancestor contract of `cd`, including `cd` itself. */
-private ContractDeclaration ancestorOrSelf(ContractDeclaration cd) {
-  result = cd
-  or
-  result = directParentContract(ancestorOrSelf(cd))
-}
-
 /** Gets the receiver expression of a member access, when it is itself an Expression. */
 private Expression memberObjectExpr(MemberExpression me) {
   result = me.getObject()
 }
 
-/** Holds if a `StateVariableDeclaration` named `name` exists in the database. */
-private predicate stateVariableExists(string name) {
-  exists(StateVariableDeclaration sv | sv.getName().(Identifier).getValue() = name)
+/**
+ * Resolves an `IdentifierExpression` to the `StateVariableDeclaration` it refers
+ * to, by going through the `NameResolution` library. Returns no result for
+ * identifiers that resolve to a local SSA variable (locals shadow state vars).
+ */
+private StateVariableDeclaration resolveStateVar(IdentifierExpression ie) {
+  result = NameResolution::resolveStateVar(ie.getIdentifier()) and
+  not exists(Ssa::sourceVariableForIdentifier(ie.getIdentifier()))
 }
 
-/** Gets an `IdentifierExpression` that references a state variable named `name`. */
-private IdentifierExpression stateVarReadExpr(string name) {
-  result.getIdentifier().getValue() = name and
-  stateVariableExists(name)
+/**
+ * Holds if `ie` is a *read* of state variable `sv`. A read is a value-context
+ * use, so an `IdentifierExpression` that is the LHS of a plain assignment is
+ * excluded.
+ */
+private predicate isStateVarRead(IdentifierExpression ie, StateVariableDeclaration sv) {
+  sv = resolveStateVar(ie) and
+  not exists(AssignmentExpression ae | ae.getLeft() = ie)
 }
 
 /** Gets the `pos`-th `Parameter` of a function-like callable, in source order. */
@@ -281,13 +259,7 @@ module SolidityDataFlow implements InputSig<Location> {
   }
 
   DataFlowCallable viableCallable(DataFlowCall c) {
-    exists(string name, ContractDeclaration callerContract, ContractDeclaration calleeContract |
-      name = calledFunctionName(c) and
-      callerContract = enclosingContract(c) and
-      calleeContract = ancestorOrSelf(callerContract) and
-      result.(FunctionDefinition).getName().getValue() = name and
-      enclosingContract(result) = calleeContract
-    )
+    result = NameResolution::resolveCallTarget(c)
   }
 
   predicate mayBenefitFromCallContext(DataFlowCall call) { none() }
@@ -353,20 +325,27 @@ module SolidityDataFlow implements InputSig<Location> {
   // ---- Jump steps (state-variable cross-function flow) ------------------
 
   predicate jumpStep(Node node1, Node node2) {
-    exists(StateVariableDeclaration sv, string name, Expression init |
-      name = sv.getName().(Identifier).getValue() and
-      init = sv.getValue() and
-      node1 = DataFlowPublic::exprNode(init) and
-      node2 = DataFlowPublic::exprNode(stateVarReadExpr(name))
+    // State variable initialiser flows to every read of that state variable.
+    exists(StateVariableDeclaration sv, IdentifierExpression read |
+      isStateVarRead(read, sv) and
+      node1 = DataFlowPublic::exprNode(sv.getValue()) and
+      node2 = DataFlowPublic::exprNode(read)
     )
     or
-    exists(AssignmentExpression ae, IdentifierExpression lhs, string name |
+    // Cross-function flow via state-variable storage: a write to `sv` in any
+    // function flows to every read of `sv`. Resolution is scoped to the
+    // assignment's enclosing contract and its inheritance chain via
+    // `resolveStateVar`, so unrelated contracts that happen to share a state
+    // variable name are no longer conflated.
+    exists(
+      AssignmentExpression ae, IdentifierExpression lhs, StateVariableDeclaration sv,
+      IdentifierExpression read
+    |
       ae.getLeft() = lhs and
-      name = lhs.getIdentifier().getValue() and
-      stateVariableExists(name) and
-      not exists(Ssa::sourceVariableForIdentifier(lhs.getIdentifier())) and
+      sv = resolveStateVar(lhs) and
+      isStateVarRead(read, sv) and
       node1 = DataFlowPublic::exprNode(ae.getRight()) and
-      node2 = DataFlowPublic::exprNode(stateVarReadExpr(name))
+      node2 = DataFlowPublic::exprNode(read)
     )
   }
 

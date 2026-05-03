@@ -13,6 +13,7 @@ private import codeql.controlflow.BasicBlocks as LocalBasicBlocks
 private import codeql.Cfg as LocalCfg
 private import codeql.Locations
 private import codeql.Solidity
+private import codeql.NameResolution
 
 /**
  * A `CfgSig` adapter that wraps the existing local CFG / BasicBlock types so
@@ -32,43 +33,14 @@ private module Cfg implements BB::CfgSig<Location> {
   }
 }
 
-/** Gets the enclosing function-like scope of the given AST node, if any. */
-private AstNode enclosingFunctionScope(AstNode n) {
-  result = n.getParent*() and
-  (
-    result instanceof FunctionDefinition or
-    result instanceof ModifierDefinition or
-    result instanceof ConstructorDefinition or
-    result instanceof FallbackReceiveDefinition
-  )
-}
-
-/**
- * Resolves an `Identifier` in expression context to the `VariableDeclaration`
- * or `Parameter` it refers to, by name within the enclosing function scope.
- */
-private AstNode resolveIdentifier(Identifier id) {
-  exists(string name, AstNode scope |
-    name = id.getValue() and
-    scope = enclosingFunctionScope(id) and
-    (
-      result.(VariableDeclaration).getName().getValue() = name and
-      enclosingFunctionScope(result) = scope
-      or
-      result.(Parameter).getName().getValue() = name and
-      result.getParent*() = scope
-    )
-  )
-}
-
 /** A variable that participates in SSA: a local variable or a parameter. */
 private newtype TSourceVariable =
   TLocalVariable(VariableDeclaration v) {
     // Restrict to declarations inside a function-like scope (excludes state vars,
     // which are storage and are tracked via `jumpStep` instead).
-    exists(enclosingFunctionScope(v))
+    exists(NameResolution::enclosingFunctionLike(v))
   } or
-  TParameter(Parameter p) { exists(enclosingFunctionScope(p)) }
+  TParameter(Parameter p) { exists(NameResolution::enclosingFunctionLike(p)) }
 
 class SourceVariable extends TSourceVariable {
   string toString() {
@@ -100,7 +72,7 @@ class SourceVariable extends TSourceVariable {
 
 /** Gets the `SourceVariable` that an `Identifier` use refers to, if any. */
 SourceVariable sourceVariableForIdentifier(Identifier id) {
-  exists(AstNode decl | decl = resolveIdentifier(id) |
+  exists(AstNode decl | decl = NameResolution::resolveLocal(id) |
     result = TLocalVariable(decl) or result = TParameter(decl)
   )
 }
@@ -172,7 +144,7 @@ private module SsaInput implements SsaImpl::InputSig<Location, Cfg::BasicBlock> 
       // Parameter entry: write at index -1 of the enclosing function's entry block.
       exists(Parameter p, AstNode scope |
         v = TParameter(p) and
-        scope = enclosingFunctionScope(p) and
+        scope = NameResolution::enclosingFunctionLike(p) and
         bb.(LocalBasicBlocks::EntryBasicBlock).getScope() = scope and
         i = -1
       )
