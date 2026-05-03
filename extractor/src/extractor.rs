@@ -1,6 +1,7 @@
 use clap::Args;
 use codeql_extractor::{diagnostics, extractor, file_paths, node_types, trap};
 use foundry_compilers::{Graph, ProjectPathsConfig};
+use foundry_compilers::artifacts::remappings::Remapping;
 use foundry_compilers::compilers::multi::MultiCompilerParser;
 use rayon::prelude::*;
 use std::fs;
@@ -204,6 +205,41 @@ fn write_trap(
     trap_writer.write_to_file(&trap_file, trap_compression)
 }
 
+#[derive(Debug, Clone, Copy)]
+enum ProjectLayout {
+    Foundry,
+    Hardhat,
+    Default,
+}
+
+impl ProjectLayout {
+    fn detect(root: &Path) -> Self {
+        if root.join("foundry.toml").exists() {
+            ProjectLayout::Foundry
+        } else if root.join("hardhat.config.ts").exists() {
+            ProjectLayout::Hardhat
+        } else {
+            ProjectLayout::Default
+        }
+    }
+
+    fn name(&self) -> &'static str {
+        match self {
+            ProjectLayout::Foundry => "Foundry",
+            ProjectLayout::Hardhat => "Hardhat",
+            ProjectLayout::Default => "default",
+        }
+    }
+
+    fn sources_dir(&self, root: &Path) -> PathBuf {
+        match self {
+            ProjectLayout::Foundry => root.join("src"),
+            ProjectLayout::Hardhat => root.join("contracts"),
+            ProjectLayout::Default => root.to_path_buf(),
+        }
+    }
+}
+
 /// Discovers all dependencies for the given Solidity files using foundry-compilers
 fn discover_dependencies(
     initial_files: &[PathBuf],
@@ -212,85 +248,116 @@ fn discover_dependencies(
 ) -> std::io::Result<Vec<PathBuf>> {
     let mut diagnostics_writer = diagnostics.logger();
 
-    // Use provided source root (from current working directory set by CodeQL)
-    if let Some(root) = source_root {
-        tracing::info!("Using source root from current working directory: {}", root.display());
-        tracing::info!("Attempting to resolve dependencies for project at: {}", root.display());
-
-        // Try to build a Foundry project from this root
-        match try_resolve_with_foundry(root) {
-            Ok(resolved_files) => {
-                tracing::info!("Resolved {} files using Foundry compiler", resolved_files.len());
-                return Ok(resolved_files);
-            }
-            Err(e) => {
-                diagnostics_writer.write(
-                    diagnostics_writer
-                        .new_entry("dependency-resolution-info", "Dependency resolution info")
-                        .message(
-                            "Could not resolve dependencies using Foundry for {}: {}. Will extract only provided files.",
-                            &[
-                                diagnostics::MessageArg::Code(&root.display().to_string()),
-                                diagnostics::MessageArg::Code(&e.to_string())
-                            ],
-                        )
-                        .severity(diagnostics::Severity::Note),
-                );
-                tracing::info!("Could not resolve dependencies for {}: {}", root.display(), e);
-            }
-        }
-    } else {
-        tracing::info!("No source root available from current working directory");
-    }
-
-    // Fallback: return the initial files if dependency resolution fails or no source root
-    tracing::info!("Using initial file list without dependency resolution");
-    Ok(initial_files.to_vec())
-}
-
-
-/// Try to resolve dependencies using foundry-compilers
-fn try_resolve_with_foundry(root: &Path) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-    // Try to detect the project structure
-    let paths: ProjectPathsConfig = if root.join("foundry.toml").exists() {
-        // Foundry project
-        ProjectPathsConfig::builder()
-            .root(root)
-            .sources(root.join("src"))
-            .build()
-            .map_err(|e| format!("Failed to build Foundry paths config: {}", e))?
-    } else if root.join("hardhat.config.ts").exists() {
-        // Hardhat project
-        ProjectPathsConfig::builder()
-            .root(root)
-            .sources(root.join("contracts"))
-            .build()
-            .map_err(|e| format!("Failed to build Hardhat paths config: {}", e))?
-    } else {
-        // Default structure
-        ProjectPathsConfig::builder()
-            .root(root)
-            .sources(root)
-            .build()
-            .map_err(|e| format!("Failed to build default paths config: {}", e))?
+    let Some(root) = source_root else {
+        tracing::info!("No source root from current working directory; using initial file list");
+        return Ok(initial_files.to_vec());
     };
 
+    let layout = ProjectLayout::detect(root);
     tracing::info!(
-        "Building project with sources at: {}",
-        paths.sources.display()
+        "Resolving dependencies at {} using {} layout",
+        root.display(),
+        layout.name()
     );
 
-    // Retrieve the graph of all source files, dependencies, and imports
-    let graph: Graph<MultiCompilerParser> = Graph::resolve(&paths)?;
+    match try_resolve_with_foundry(root, layout) {
+        Ok(resolved_files) => {
+            let count = resolved_files.len();
+            tracing::info!("Resolved {} files using {} layout", count, layout.name());
+            diagnostics_writer.write(
+                diagnostics_writer
+                    .new_entry(
+                        "dependency-resolution-succeeded",
+                        "Dependency resolution succeeded",
+                    )
+                    .message(
+                        "Resolved {} Solidity files via {} layout at {}.",
+                        &[
+                            diagnostics::MessageArg::Code(&count.to_string()),
+                            diagnostics::MessageArg::Code(layout.name()),
+                            diagnostics::MessageArg::Code(&root.display().to_string()),
+                        ],
+                    )
+                    .severity(diagnostics::Severity::Note),
+            );
+            Ok(resolved_files)
+        }
+        Err(e) => {
+            tracing::warn!(
+                "Dependency resolution failed for {} layout at {}: {}",
+                layout.name(),
+                root.display(),
+                e
+            );
+            diagnostics_writer.write(
+                diagnostics_writer
+                    .new_entry(
+                        "dependency-resolution-failed",
+                        "Dependency resolution failed",
+                    )
+                    .message(
+                        "Failed to resolve dependencies via {} layout at {}: {}. Falling back to the {} initial files; transitive imports will not be extracted.",
+                        &[
+                            diagnostics::MessageArg::Code(layout.name()),
+                            diagnostics::MessageArg::Code(&root.display().to_string()),
+                            diagnostics::MessageArg::Code(&e.to_string()),
+                            diagnostics::MessageArg::Code(&initial_files.len().to_string()),
+                        ],
+                    )
+                    .severity(diagnostics::Severity::Warning),
+            );
+            Ok(initial_files.to_vec())
+        }
+    }
+}
 
-    // Get all source files from the project
-    let mut files = Vec::new();
+/// Try to resolve dependencies using foundry-compilers
+fn try_resolve_with_foundry(
+    root: &Path,
+    layout: ProjectLayout,
+) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+    let sources = layout.sources_dir(root);
+    let lib_dir = match layout {
+        ProjectLayout::Foundry | ProjectLayout::Default => root.join("lib"),
+        ProjectLayout::Hardhat => root.join("node_modules"),
+    };
 
-    // Collect files from the resolved graph
-    for file_path in graph.files().keys() {
-        tracing::debug!("Found source file: {}", file_path.display());
-        files.push(file_path.clone());
+    let mut remappings: Vec<Remapping> = Vec::new();
+
+    let remappings_txt = root.join("remappings.txt");
+    if remappings_txt.exists() {
+        let content = std::fs::read_to_string(&remappings_txt)?;
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            match trimmed.parse::<Remapping>() {
+                Ok(r) => remappings.push(r),
+                Err(e) => tracing::warn!("Skipping invalid remapping '{}': {}", trimmed, e),
+            }
+        }
     }
 
-    Ok(files)
+    if lib_dir.exists() {
+        remappings.extend(Remapping::find_many(&lib_dir));
+    }
+
+    let paths: ProjectPathsConfig = ProjectPathsConfig::builder()
+        .root(root)
+        .sources(&sources)
+        .lib(&lib_dir)
+        .remappings(remappings)
+        .build()
+        .map_err(|e| format!("Failed to build paths config: {}", e))?;
+
+    tracing::info!(
+        "Building project with sources at: {} ({} remappings)",
+        paths.sources.display(),
+        paths.remappings.len()
+    );
+
+    let graph: Graph<MultiCompilerParser> = Graph::resolve(&paths)?;
+
+    Ok(graph.files().keys().cloned().collect())
 }
