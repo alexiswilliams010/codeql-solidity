@@ -12,7 +12,7 @@ else
 endif
 CODEQL_BUNDLE_URL = https://github.com/github/codeql-action/releases/latest/download/codeql-bundle-$(CODEQL_PLATFORM).tar.gz
 
-.PHONY: help codeql-cli build pack clean test install
+.PHONY: help codeql-cli build pack clean test install pack-install
 
 help: ## Show this help message
 	@echo "Available targets:"
@@ -54,6 +54,14 @@ install: codeql-cli ## Install CodeQL CLI to system PATH
 		echo "CodeQL CLI added to PATH in $$RC"; \
 	fi; \
 	echo "Restart your shell or run: source $$RC"
+
+pack-install: ## Install qlpack dependencies (removes bundled packs that shadow them)
+	@if [ -d "$(CODEQL_HOME)/codeql/qlpacks/codeql" ]; then \
+		echo "Removing bundled CodeQL packs at $(CODEQL_HOME)/codeql/qlpacks/codeql..."; \
+		rm -rf "$(CODEQL_HOME)/codeql/qlpacks/codeql"; \
+	fi
+	@echo "Installing qlpack dependencies..."
+	@cd ql/lib && codeql pack install
 
 build: ## Build the Solidity extractor
 	@echo "Building Solidity extractor..."
