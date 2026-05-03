@@ -2,12 +2,17 @@
 
 # Configuration
 CODEQL_HOME ?= $(HOME)/codeql-home
-PLATFORM ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
-ARCH ?= $(shell uname -m | sed 's/x86_64/64/' | sed 's/aarch64/64/')
-CODEQL_PLATFORM = $(PLATFORM)$(ARCH)
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  CODEQL_PLATFORM = osx64
+else ifeq ($(UNAME_S),Linux)
+  CODEQL_PLATFORM = linux64
+else
+  CODEQL_PLATFORM = win64
+endif
 CODEQL_BUNDLE_URL = https://github.com/github/codeql-action/releases/latest/download/codeql-bundle-$(CODEQL_PLATFORM).tar.gz
 
-.PHONY: help codeql-cli build pack clean test install
+.PHONY: help codeql-cli build pack clean test install pack-install
 
 help: ## Show this help message
 	@echo "Available targets:"
@@ -20,47 +25,59 @@ codeql-cli: ## Download and extract CodeQL CLI
 	@cd $(CODEQL_HOME) && \
 		if [ ! -d "codeql" ]; then \
 			echo "Downloading from $(CODEQL_BUNDLE_URL)"; \
-			curl -L -o codeql-bundle.tar.gz "$(CODEQL_BUNDLE_URL)" || \
-			(echo "❌ Failed to download CodeQL CLI. Check the URL and try again."; exit 1); \
-			echo "📦 Extracting CodeQL CLI..."; \
+			curl -fL -o codeql-bundle.tar.gz "$(CODEQL_BUNDLE_URL)" || \
+			(echo "Failed to download CodeQL CLI from $(CODEQL_BUNDLE_URL)"; exit 1); \
+			echo "Extracting CodeQL CLI..."; \
 			tar -xzf codeql-bundle.tar.gz; \
 			rm -f codeql-bundle.tar*; \
 		else \
-			echo "✅ CodeQL CLI already exists"; \
+			echo "CodeQL CLI already exists"; \
 		fi
 
 install: codeql-cli ## Install CodeQL CLI to system PATH
-	@echo "🔧 Installing CodeQL CLI to system PATH..."
-	@if [ -f "$(CODEQL_HOME)/codeql/codeql" ]; then \
-		if [ -f ~/.zshrc ]; then \
-			echo 'export PATH="$(CODEQL_HOME)/codeql:$$PATH"' >> ~/.zshrc; \
-			echo "✅ CodeQL CLI added to PATH in ~/.zshrc"; \
-			source ~/.zshrc; \
-		else \
-			echo 'export PATH="$(CODEQL_HOME)/codeql:$$PATH"' >> ~/.bashrc; \
-			echo "✅ CodeQL CLI added to PATH in ~/.bashrc"; \
-			source ~/.bashrc; \
-		fi \
-	else \
-		echo "❌ CodeQL CLI not found. Run 'make setup' first."; \
+	@if [ ! -f "$(CODEQL_HOME)/codeql/codeql" ]; then \
+		echo "CodeQL CLI not found. Run 'make codeql-cli' first."; \
 		exit 1; \
 	fi
+	@case "$$SHELL" in \
+		*/zsh) RC="$$HOME/.zshrc" ;; \
+		*/bash) RC="$$HOME/.bashrc" ;; \
+		*) echo "Unknown shell ($$SHELL). Add this to your shell rc manually:"; \
+		   echo '    export PATH="$(CODEQL_HOME)/codeql:$$PATH"'; exit 0 ;; \
+	esac; \
+	LINE='export PATH="$(CODEQL_HOME)/codeql:$$PATH"'; \
+	touch "$$RC"; \
+	if grep -Fqx "$$LINE" "$$RC"; then \
+		echo "CodeQL CLI already on PATH in $$RC"; \
+	else \
+		printf '\n%s\n' "$$LINE" >> "$$RC"; \
+		echo "CodeQL CLI added to PATH in $$RC"; \
+	fi; \
+	echo "Restart your shell or run: source $$RC"
+
+pack-install: ## Install qlpack dependencies (removes bundled packs that shadow them)
+	@if [ -d "$(CODEQL_HOME)/codeql/qlpacks/codeql" ]; then \
+		echo "Removing bundled CodeQL packs at $(CODEQL_HOME)/codeql/qlpacks/codeql..."; \
+		rm -rf "$(CODEQL_HOME)/codeql/qlpacks/codeql"; \
+	fi
+	@echo "Installing qlpack dependencies..."
+	@cd ql/lib && codeql pack install
 
 build: ## Build the Solidity extractor
-	@echo "🔨 Building Solidity extractor..."
+	@echo "Building Solidity extractor..."
 	@cd extractor && cargo build --release
 
 pack: build ## Create the extractor pack
 	@echo "Creating extractor pack..."
 	@./scripts/create-extractor-pack.sh
-	@echo "✅ Extractor pack created!"
+	@echo "Extractor pack created"
 
 test: ## Test the extractor
-	@echo "🧪 Testing the extractor..."
+	@echo "Testing the extractor..."
 	@cd extractor && cargo test
 
 clean: ## Clean build artifacts
-	@echo "🧹 Cleaning build artifacts..."
+	@echo "Cleaning build artifacts..."
 	@cd extractor && cargo clean
 	@rm -rf extractor-pack
 	@rm -rf ql/lib/solidity.dbscheme*
