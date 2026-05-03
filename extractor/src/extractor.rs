@@ -109,69 +109,44 @@ pub fn run(options: Options) -> std::io::Result<()> {
 
     tracing::info!("Total files after dependency resolution: {}", all_files.len());
 
-    // Extract all discovered files
-    all_files
-        .par_iter()
-        .try_for_each(|path| -> std::io::Result<()> {
-            let mut diagnostics_writer = diagnostics.logger();
-            tracing::info!("extracting: {}", path.display());
+    // Extract all discovered files. Per-file failures are logged as diagnostics
+    // and skipped so a single bad file doesn't abort the whole extraction.
+    let failed_count = std::sync::atomic::AtomicUsize::new(0);
+    all_files.par_iter().for_each(|path| {
+        let mut diagnostics_writer = diagnostics.logger();
+        tracing::debug!("extracting: {}", path.display());
 
-            // Check if file exists before processing
-            if !path.exists() {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!("File does not exist: {}", path.display())
-                ));
-            }
-
-            let src_archive_file = file_paths::path_for(
-                src_archive_dir,
-                path,
-                "",
-                path_transformer.as_ref(),
+        if let Err(e) = extract_one_file(
+            path,
+            &language,
+            &schema,
+            &mut diagnostics_writer,
+            src_archive_dir,
+            trap_dir,
+            trap_compression,
+            path_transformer.as_ref(),
+        ) {
+            failed_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            tracing::warn!("Failed to extract {}: {}", path.display(), e);
+            diagnostics_writer.write(
+                diagnostics_writer
+                    .new_entry("file-extraction-failed", "File extraction failed")
+                    .file(&path.display().to_string())
+                    .message(
+                        "Failed to extract {}: {}",
+                        &[
+                            diagnostics::MessageArg::Code(&path.display().to_string()),
+                            diagnostics::MessageArg::Code(&e.to_string()),
+                        ],
+                    )
+                    .severity(diagnostics::Severity::Warning),
             );
-
-            let source = std::fs::read(path).map_err(|e| {
-                std::io::Error::new(
-                    e.kind(),
-                    format!("Failed to read file {}: {}", path.display(), e)
-                )
-            })?;
-
-            let mut trap_writer = trap::Writer::new();
-
-            extractor::extract(
-                &language,
-                "solidity",
-                &schema,
-                &mut diagnostics_writer,
-                &mut trap_writer,
-                path_transformer.as_ref(),
-                path,
-                &source,
-                &[],
-            );
-
-            std::fs::create_dir_all(src_archive_file.parent().unwrap()).map_err(|e| {
-                std::io::Error::new(
-                    e.kind(),
-                    format!("Failed to create directory {}: {}", src_archive_file.parent().unwrap().display(), e)
-                )
-            })?;
-
-            std::fs::copy(path, &src_archive_file).map_err(|e| {
-                std::io::Error::new(
-                    e.kind(),
-                    format!("Failed to copy {} to {}: {}", path.display(), src_archive_file.display(), e)
-                )
-            })?;
-
-            write_trap(trap_dir, path.clone(), &trap_writer, trap_compression, path_transformer.as_ref())
-        })
-        .map_err(|e| {
-            tracing::error!("Failed to extract files: {}", e);
-            e
-        })?;
+        }
+    });
+    let failed = failed_count.load(std::sync::atomic::Ordering::Relaxed);
+    if failed > 0 {
+        tracing::warn!("{} of {} files failed to extract", failed, all_files.len());
+    }
 
     let path = PathBuf::from("extras");
     let mut trap_writer = trap::Writer::new();
@@ -186,6 +161,47 @@ pub fn run(options: Options) -> std::io::Result<()> {
 
     tracing::info!("Extraction complete");
     res
+}
+
+fn extract_one_file(
+    path: &Path,
+    language: &Language,
+    schema: &node_types::NodeTypeMap,
+    diagnostics_writer: &mut diagnostics::LogWriter,
+    src_archive_dir: &Path,
+    trap_dir: &Path,
+    trap_compression: trap::Compression,
+    path_transformer: Option<&file_paths::PathTransformer>,
+) -> std::io::Result<()> {
+    let source = std::fs::read(path)?;
+
+    let src_archive_file = file_paths::path_for(src_archive_dir, path, "", path_transformer);
+
+    let mut trap_writer = trap::Writer::new();
+    extractor::extract(
+        language,
+        "solidity",
+        schema,
+        diagnostics_writer,
+        &mut trap_writer,
+        path_transformer,
+        path,
+        &source,
+        &[],
+    );
+
+    if let Some(parent) = src_archive_file.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::copy(path, &src_archive_file)?;
+
+    write_trap(
+        trap_dir,
+        path.to_path_buf(),
+        &trap_writer,
+        trap_compression,
+        path_transformer,
+    )
 }
 
 fn write_trap(
@@ -311,50 +327,130 @@ fn discover_dependencies(
     }
 }
 
+#[derive(Default)]
+struct FoundryConfig {
+    src: Option<String>,
+    libs: Vec<String>,
+    remappings: Vec<Remapping>,
+}
+
+/// Parse the `[profile.default]` section of foundry.toml.
+/// Returns None if foundry.toml doesn't exist or can't be parsed; missing fields fall back to None/empty.
+fn parse_foundry_toml(root: &Path) -> Option<FoundryConfig> {
+    let path = root.join("foundry.toml");
+    let content = std::fs::read_to_string(&path).ok()?;
+    let value: toml::Value = content.parse().ok()?;
+    let profile = value.get("profile")?.get("default")?;
+
+    let src = profile
+        .get("src")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+
+    let libs = profile
+        .get("libs")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let remappings = profile
+        .get("remappings")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .filter_map(|s| match s.parse::<Remapping>() {
+                    Ok(r) => Some(r),
+                    Err(e) => {
+                        tracing::warn!("Skipping invalid remapping in foundry.toml '{}': {}", s, e);
+                        None
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Some(FoundryConfig {
+        src,
+        libs,
+        remappings,
+    })
+}
+
+fn load_remappings_txt(root: &Path) -> std::io::Result<Vec<Remapping>> {
+    let path = root.join("remappings.txt");
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = std::fs::read_to_string(&path)?;
+    let mut remappings = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        match trimmed.parse::<Remapping>() {
+            Ok(r) => remappings.push(r),
+            Err(e) => tracing::warn!("Skipping invalid remapping '{}': {}", trimmed, e),
+        }
+    }
+    Ok(remappings)
+}
+
 /// Try to resolve dependencies using foundry-compilers
 fn try_resolve_with_foundry(
     root: &Path,
     layout: ProjectLayout,
 ) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-    let sources = layout.sources_dir(root);
-    let lib_dir = match layout {
-        ProjectLayout::Foundry | ProjectLayout::Default => root.join("lib"),
-        ProjectLayout::Hardhat => root.join("node_modules"),
+    let foundry_config = if matches!(layout, ProjectLayout::Foundry) {
+        parse_foundry_toml(root).unwrap_or_default()
+    } else {
+        FoundryConfig::default()
     };
 
-    let mut remappings: Vec<Remapping> = Vec::new();
+    let sources = match foundry_config.src.as_deref() {
+        Some(src) => root.join(src),
+        None => layout.sources_dir(root),
+    };
 
-    let remappings_txt = root.join("remappings.txt");
-    if remappings_txt.exists() {
-        let content = std::fs::read_to_string(&remappings_txt)?;
-        for line in content.lines() {
-            let trimmed = line.trim();
-            if trimmed.is_empty() || trimmed.starts_with('#') {
-                continue;
-            }
-            match trimmed.parse::<Remapping>() {
-                Ok(r) => remappings.push(r),
-                Err(e) => tracing::warn!("Skipping invalid remapping '{}': {}", trimmed, e),
-            }
+    let lib_dirs: Vec<PathBuf> = if !foundry_config.libs.is_empty() {
+        foundry_config.libs.iter().map(|l| root.join(l)).collect()
+    } else {
+        match layout {
+            ProjectLayout::Foundry | ProjectLayout::Default => vec![root.join("lib")],
+            ProjectLayout::Hardhat => vec![root.join("node_modules")],
+        }
+    };
+
+    let mut remappings: Vec<Remapping> = foundry_config.remappings;
+    remappings.extend(load_remappings_txt(root)?);
+    for lib_dir in &lib_dirs {
+        if lib_dir.exists() {
+            remappings.extend(Remapping::find_many(lib_dir));
         }
     }
 
-    if lib_dir.exists() {
-        remappings.extend(Remapping::find_many(&lib_dir));
-    }
-
-    let paths: ProjectPathsConfig = ProjectPathsConfig::builder()
+    let mut builder = ProjectPathsConfig::builder()
         .root(root)
         .sources(&sources)
-        .lib(&lib_dir)
-        .remappings(remappings)
+        .remappings(remappings);
+    for lib_dir in &lib_dirs {
+        builder = builder.lib(lib_dir);
+    }
+
+    let paths: ProjectPathsConfig = builder
         .build()
         .map_err(|e| format!("Failed to build paths config: {}", e))?;
 
     tracing::info!(
-        "Building project with sources at: {} ({} remappings)",
+        "Building project with sources at: {} ({} remappings, {} lib dirs)",
         paths.sources.display(),
-        paths.remappings.len()
+        paths.remappings.len(),
+        lib_dirs.len()
     );
 
     let graph: Graph<MultiCompilerParser> = Graph::resolve(&paths)?;
