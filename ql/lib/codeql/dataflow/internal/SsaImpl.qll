@@ -172,9 +172,17 @@ private module SsaInput implements SsaImpl::InputSig<Location, Cfg::BasicBlock> 
   predicate variableRead(Cfg::BasicBlock bb, int i, SourceVariable v, boolean certain) {
     certain = true and
     exists(Identifier id |
-      cfgNodeAt(bb, i, id) and
       v = sourceVariableForIdentifier(id) and
-      not isWriteContext(id)
+      not isWriteContext(id) and
+      (
+        // Bare identifier appearing directly in the CFG (e.g. the receiver of
+        // `target.call(data)`).
+        cfgNodeAt(bb, i, id)
+        or
+        // Identifier wrapped in an `IdentifierExpression`. The wrapper is the
+        // CFG node, not the inner Identifier.
+        exists(IdentifierExpression ie | ie.getIdentifier() = id and cfgNodeAt(bb, i, ie))
+      )
     )
   }
 }
@@ -191,13 +199,21 @@ class UncertainWriteDefinition = Impl::UncertainWriteDefinition;
 
 /**
  * Gets a read of the source variable defined by `def`. The result is the
- * `Identifier` token referencing the variable at the use site.
+ * `Identifier` token referencing the variable at the use site, whether the
+ * read is a bare identifier in the CFG or an `IdentifierExpression` wrapping
+ * the identifier.
  */
 Identifier getARead(Definition def) {
   exists(SourceVariable v, Cfg::BasicBlock bb, int i |
     Impl::ssaDefReachesRead(v, def, bb, i) and
-    cfgNodeAt(bb, i, result) and
-    sourceVariableForIdentifier(result) = v
+    sourceVariableForIdentifier(result) = v and
+    (
+      cfgNodeAt(bb, i, result)
+      or
+      exists(IdentifierExpression ie |
+        cfgNodeAt(bb, i, ie) and ie.getIdentifier() = result
+      )
+    )
   )
 }
 

@@ -276,10 +276,17 @@ module SolidityDataFlow implements InputSig<Location> {
     model = "" and
     (
       // SSA def→use: from value being assigned to each read.
-      exists(Ssa::WriteDefinition def, Identifier readId, IdentifierExpression readExpr |
+      // The read site is either an `IdentifierExpression` wrapping the
+      // identifier, or the bare `Identifier` token used in value position
+      // (e.g. the receiver of `target.call(data)`).
+      exists(Ssa::WriteDefinition def, Identifier readId, AstNode readNode |
         readId = Ssa::getARead(def) and
-        readId = readExpr.getIdentifier() and
-        node2 = DataFlowPublic::exprNode(readExpr)
+        node2 = DataFlowPublic::valueNode(readNode) and
+        (
+          readNode = readId
+          or
+          readNode.(IdentifierExpression).getIdentifier() = readId
+        )
       |
         // Parameter init: the parameter node flows to identifier reads of it.
         exists(Parameter p |

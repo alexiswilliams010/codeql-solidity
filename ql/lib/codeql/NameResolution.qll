@@ -117,12 +117,23 @@ module NameResolution {
   // ==========================================================================
 
   /**
-   * Holds if `id` is a free identifier reference appearing in expression
-   * position (the inner identifier of an `IdentifierExpression`). Excludes
-   * declaration names and member-access properties.
+   * Holds if `id` is a free identifier reference appearing in a value-producing
+   * expression position. This covers both the wrapped case (the inner identifier
+   * of an `IdentifierExpression`) and the bare-token case where the Solidity
+   * grammar emitted an `Identifier` directly in an expression slot — for
+   * example the receiver of `target.call(data)` or the base of `arr[0]`.
+   * Excludes declaration names and member-access properties.
    */
   predicate isFreeReference(Identifier id) {
     exists(IdentifierExpression ie | ie.getIdentifier() = id)
+    or
+    exists(MemberExpression me | me.getObject() = id)
+    or
+    exists(ArrayAccess aa | aa.getBase() = id)
+    or
+    exists(CallArgument ca | ca.getAChild() = id)
+    or
+    exists(AssignmentExpression ae | ae.getLeft() = id)
   }
 
   // ==========================================================================

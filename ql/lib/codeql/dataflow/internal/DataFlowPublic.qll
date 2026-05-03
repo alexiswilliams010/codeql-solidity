@@ -11,11 +11,34 @@
 private import codeql.Solidity
 private import codeql.Locations
 
+/**
+ * Holds if `id` is a bare `Identifier` token used in a value-producing
+ * expression position. The Solidity grammar sometimes emits a bare `Identifier`
+ * instead of a wrapper `Expression` around an identifier reference (per
+ * `@solidity_member_expression_object_type = @solidity_expression | @solidity_token_identifier`),
+ * for example the receiver of `target.call(data)` is a bare `Identifier`.
+ * These bare identifiers need their own dataflow nodes so taint can flow
+ * through them.
+ */
+private predicate isBareIdentifierInValueContext(Identifier id) {
+  exists(MemberExpression me | me.getObject() = id)
+  or
+  exists(ArrayAccess aa | aa.getBase() = id)
+  or
+  exists(CallArgument ca | ca.getAChild() = id)
+  or
+  exists(AssignmentExpression ae | ae.getLeft() = id)
+}
+
 newtype TNode =
-  MkExprNode(Expression e) or
+  MkExprNode(AstNode e) {
+    e instanceof Expression
+    or
+    e instanceof Identifier and isBareIdentifierInValueContext(e)
+  } or
   MkParameterNode(Parameter p) or
-  MkPostUpdateNode(Expression e) {
-    // An expression that appears as a mutation-target qualifier: the receiver
+  MkPostUpdateNode(AstNode e) {
+    // A node that appears as a mutation-target qualifier: the receiver
     // of a member access, the base of an array access, the LHS of an assignment,
     // or the receiver of a method call (`x.foo()` may mutate `x`).
     exists(MemberExpression me | me.getObject() = e)
@@ -26,54 +49,63 @@ newtype TNode =
     or
     exists(CallExpression ce, MemberExpression callee |
       ce.getFunction() = callee and callee.getObject() = e
+      or
+      ce.getFunction().getAChild() = callee and callee.getObject() = e
     )
   }
 
 /**
  * A node in the data flow graph. Every dataflow `Node` corresponds to either
- * an AST `Expression`, an AST `Parameter`, or the post-state (`PostUpdateNode`)
- * of an expression that may have been mutated.
+ * an AST `Expression`, a bare `Identifier` used as a value, an AST `Parameter`,
+ * or the post-state (`PostUpdateNode`) of an expression that may have been
+ * mutated.
  */
 class Node extends TNode {
   /** Gets a textual representation of this node. */
   string toString() {
-    exists(Expression e | this = MkExprNode(e) | result = e.toString())
+    exists(AstNode n | this = MkExprNode(n) | result = n.toString())
     or
     exists(Parameter p | this = MkParameterNode(p) | result = p.toString())
     or
-    exists(Expression e | this = MkPostUpdateNode(e) | result = "[post update] " + e.toString())
+    exists(AstNode n | this = MkPostUpdateNode(n) | result = "[post update] " + n.toString())
   }
 
   /** Gets the location of this node. */
   Location getLocation() {
-    exists(Expression e | this = MkExprNode(e) | result = e.getLocation())
+    exists(AstNode n | this = MkExprNode(n) | result = n.getLocation())
     or
     exists(Parameter p | this = MkParameterNode(p) | result = p.getLocation())
     or
-    exists(Expression e | this = MkPostUpdateNode(e) | result = e.getLocation())
+    exists(AstNode n | this = MkPostUpdateNode(n) | result = n.getLocation())
   }
 
   /**
-   * Gets the wrapped `Expression` if this is an `ExprNode` (which includes
-   * `ArgumentNode`, `ReturnNode`, `OutNode`, and `CastNode`).
+   * Gets the wrapped value-producing AST node — an `Expression`, or a bare
+   * `Identifier` used as a value (e.g. the receiver of `target.call(data)`).
    */
-  Expression asExpr() { this = MkExprNode(result) }
+  AstNode asExpr() { this = MkExprNode(result) }
 
   /** Gets the wrapped `Parameter` if this is a `ParameterNode`. */
   Parameter asParameter() { this = MkParameterNode(result) }
 
-  /** Gets the wrapped `Expression` if this is a `PostUpdateNode`. */
-  Expression asPostUpdateExpr() { this = MkPostUpdateNode(result) }
+  /** Gets the wrapped node whose post-state this represents. */
+  AstNode asPostUpdateExpr() { this = MkPostUpdateNode(result) }
 }
 
-/** A dataflow node that wraps an AST `Expression`. */
+/**
+ * A dataflow node that wraps an AST `Expression` or a bare `Identifier` used
+ * in value-producing position.
+ */
 class ExprNode extends Node, MkExprNode {
-  Expression e;
+  AstNode e;
 
   ExprNode() { this = MkExprNode(e) }
 
-  /** Gets the wrapped expression. */
-  Expression getExpr() { result = e }
+  /**
+   * Gets the wrapped node. This is always an `Expression` or a bare
+   * `Identifier` token used as a value.
+   */
+  AstNode getExpr() { result = e }
 
   override string toString() { result = e.toString() }
 
@@ -95,20 +127,20 @@ class ParameterNode extends Node, MkParameterNode {
 }
 
 /**
- * A dataflow node representing the post-state of an expression that may have
- * been mutated by an operation (e.g. the receiver of a method call, or the
+ * A dataflow node representing the post-state of a value that may have been
+ * mutated by an operation (e.g. the receiver of a method call, or the
  * qualifier of a field write).
  */
 class PostUpdateNode extends Node, MkPostUpdateNode {
-  Expression e;
+  AstNode e;
 
   PostUpdateNode() { this = MkPostUpdateNode(e) }
 
-  /** Gets the corresponding pre-update node (the same expression's value before mutation). */
+  /** Gets the corresponding pre-update node (the same value before mutation). */
   Node getPreUpdateNode() { result = MkExprNode(e) }
 
-  /** Gets the underlying expression whose post-state this represents. */
-  Expression getExpr() { result = e }
+  /** Gets the underlying AST node whose post-state this represents. */
+  AstNode getExpr() { result = e }
 
   override string toString() { result = "[post update] " + e.toString() }
 
@@ -155,6 +187,13 @@ class CastNode extends ExprNode {
 
 /** Gets the `ExprNode` that wraps the given AST `Expression`. */
 ExprNode exprNode(Expression e) { result = MkExprNode(e) }
+
+/**
+ * Gets the `ExprNode` that wraps the given AST node (an `Expression` or a
+ * bare `Identifier` used in value position). Use this when a predicate
+ * accessor like `MemberExpression.getObject()` may return either.
+ */
+ExprNode valueNode(AstNode n) { result = MkExprNode(n) }
 
 /** Gets the `ParameterNode` that wraps the given AST `Parameter`. */
 ParameterNode parameterNode(Parameter p) { result = MkParameterNode(p) }

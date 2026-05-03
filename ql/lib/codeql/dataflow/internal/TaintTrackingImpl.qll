@@ -77,7 +77,7 @@ module SolidityTaintTracking implements
   predicate defaultImplicitTaintRead(
     SolidityDataFlow::Node node, SolidityDataFlow::ContentSet c
   ) {
-    any()
+    none()
   }
 
   predicate speculativeTaintStep(SolidityDataFlow::Node src, SolidityDataFlow::Node sink) {
