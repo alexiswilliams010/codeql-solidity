@@ -216,3 +216,40 @@ class WriteDefinition = Impl::WriteDefinition;
 class PhiNode = Impl::PhiNode;
 
 class UncertainWriteDefinition = Impl::UncertainWriteDefinition;
+
+/**
+ * Gets a read of the source variable defined by `def`. The result is the
+ * `Identifier` token referencing the variable at the use site.
+ */
+Identifier getARead(Definition def) {
+  exists(SourceVariable v, Cfg::BasicBlock bb, int i |
+    Impl::ssaDefReachesRead(v, def, bb, i) and
+    cfgNodeAt(bb, i, result) and
+    sourceVariableForIdentifier(result) = v
+  )
+}
+
+/**
+ * Gets the `Expression` whose value is being assigned by the write definition `def`,
+ * if any. For `x = e` this is `e`. For `var x = e;` this is `e`. Augmented
+ * assignments and update expressions (`x += y`, `x++`) have no single source
+ * `Expression` and are not modelled here.
+ */
+Expression getWriteValue(WriteDefinition def) {
+  exists(Cfg::BasicBlock bb, int i, AstNode writeNode |
+    def.definesAt(_, bb, i) and
+    cfgNodeAt(bb, i, writeNode)
+  |
+    result = writeNode.(AssignmentExpression).getRight()
+    or
+    writeNode.(VariableDeclarationStatement).getValue() = result
+  )
+}
+
+/** Holds if `def` is the entry write for `Parameter p`. */
+predicate parameterInit(WriteDefinition def, Parameter p) {
+  exists(Cfg::BasicBlock bb |
+    def.definesAt(TParameter(p), bb, -1) and
+    bb instanceof LocalBasicBlocks::EntryBasicBlock
+  )
+}
