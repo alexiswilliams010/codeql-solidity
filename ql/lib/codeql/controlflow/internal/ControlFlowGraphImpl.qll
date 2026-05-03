@@ -356,6 +356,39 @@ private class ContractBodyTree extends StandardPostOrderTree instanceof Contract
 
 private class BooleanLiteralTree extends LeafTree instanceof BooleanLiteral { }
 
+// Identifier tokens used in value-producing positions (e.g. the receiver of
+// `target.call(data)` or the base of `arr[0]`) — the Solidity grammar emits
+// these as bare `Identifier` tokens rather than wrapping them in an
+// `Expression`, but they still need to participate in control flow so SSA and
+// dataflow can track their values.
+private class IdentifierTree extends LeafTree instanceof Identifier {
+  IdentifierTree() {
+    exists(MemberExpression me | me.getObject() = this) or
+    exists(ArrayAccess aa | aa.getBase() = this) or
+    exists(CallArgument ca | ca.getAChild() = this) or
+    exists(AssignmentExpression ae | ae.getLeft() = this)
+  }
+}
+
+// The Solidity grammar wraps inline expression contents in an unnamed
+// `expression` node (TSolExpression). Specific subclasses like `IdentifierExpression`
+// handle some cases, but for any other content (CallExpression, MemberExpression,
+// etc.) the wrapper has no specific tree class. Without this pass-through tree
+// the CFG would stop at every wrapper boundary.
+private class GenericExpressionWrapperTree extends StandardPostOrderTree instanceof Expression {
+  GenericExpressionWrapperTree() {
+    this.(Expression).getAPrimaryQlClass() = "Expression" and
+    not this instanceof IdentifierExpression
+  }
+
+  override ControlFlowTree getChildNode(int i) { result = super.getAChild() and i = 0 }
+}
+
+// `IdentifierExpression` (the wrapper around a bare `Identifier`) needs to
+// participate in the CFG too. Treat it as a leaf — the only meaningful
+// CFG event is "evaluate this identifier reference".
+private class IdentifierExpressionTree extends LeafTree instanceof IdentifierExpression { }
+
 private class NumberTree extends LeafTree instanceof NumberLiteral { }
 
 private class StringLiteralTree extends LeafTree instanceof StringLiteral { }
@@ -419,7 +452,15 @@ private class AugmentedAssignmentExpressionTree extends StandardPostOrderTree in
 
 private class FunctionCallExpressionTree extends StandardPostOrderTree instanceof CallExpression
 {
-  override ControlFlowTree getChildNode(int i) { result = super.getArgument(i) }
+  override ControlFlowTree getChildNode(int i) {
+    i = 0 and result = super.getFunction()
+    or
+    exists(int argIdx | argIdx >= 0 | i = argIdx + 1 and result = super.getArgument(argIdx))
+  }
+}
+
+private class CallArgumentTree extends StandardPostOrderTree instanceof CallArgument {
+  override ControlFlowTree getChildNode(int i) { result = super.getAChild() and i = 0 }
 }
 
 private class MemberExpressionTree extends StandardPostOrderTree instanceof MemberExpression {
