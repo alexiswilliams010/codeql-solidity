@@ -14,11 +14,15 @@
  * Returns no result for language built-ins (`msg`, `block`, `tx`, `abi`,
  * `this`, `super`, etc.) — these are not declared in user code.
  *
- * Cross-file import resolution is NOT yet implemented. Inheritance walking
- * uses the same name-based scoping as the rest of the resolver.
+ * The `Imports` sub-module exposes helpers for cross-file lookup
+ * (`importedDeclaration`, `qualifiedImportedDeclaration`,
+ * `topLevelDeclByName`, `staticTypeName`). These are used by the cross-file
+ * disjuncts of `resolveCallTarget` and `directParent` (Phase 3).
  */
 
 import Solidity
+private import solidity.ast.internal.TreeSitter as TS
+private import solidity.ast.internal.Ast as InternalAst
 
 module NameResolution {
   // ==========================================================================
@@ -287,5 +291,240 @@ module NameResolution {
     not exists(resolveStateVar(id)) and
     not exists(resolveCallable(id)) and
     result = resolveFileMember(id)
+  }
+
+  // ==========================================================================
+  // Cross-file lookup (Imports)
+  // ==========================================================================
+
+  /**
+   * Helpers for resolving names across `import` directives. Backed by the
+   * extractor's `solidity_import_resolution` relation (via
+   * `ImportDirective.getResolvedFile()`).
+   *
+   * Solidity import semantics modeled here:
+   *   - `import "X";`               — wildcard: all top-level decls of X are in
+   *                                   scope under their original names.
+   *   - `import {A, B} from "X";`   — selective: only A and B are in scope.
+   *   - `import {A as Z} from "X";` — selective with rename. Pairing aliases
+   *                                   to import names is a v1 limitation: this
+   *                                   module currently exposes A under both A
+   *                                   and Z (via separate disjuncts), without
+   *                                   verifying the source-position pairing.
+   *   - `import "X" as N;` /
+   *     `import * as N from "X";`   — module alias: NOT in scope under bare
+   *                                   names. Use `qualifiedImportedDeclaration`.
+   *
+   * Solidity does NOT transitively re-export. `importedDeclaration` is
+   * non-transitive — only direct imports of `callerFile` are consulted.
+   */
+  module Imports {
+    /**
+     * Gets a top-level (file-scope) declaration in `f` whose declared name is
+     * `name`. Covers contract-likes, free functions, top-level constants.
+     */
+    AstNode topLevelDeclByName(SourceFile f, string name) {
+      result.getParent() = f and
+      (
+        result.(ContractDeclaration).getName().(Identifier).getValue() = name
+        or
+        result.(InterfaceDeclaration).getName().(Identifier).getValue() = name
+        or
+        result.(LibraryDeclaration).getName().(Identifier).getValue() = name
+        or
+        result.(FunctionDefinition).getName().getValue() = name
+        or
+        result.(ConstantVariableDeclaration).getName().(Identifier).getValue() = name
+      )
+    }
+
+    /**
+     * Gets the `SourceFile` AST root of the file `f`.
+     */
+    SourceFile sourceFileOf(File f) { result.getLocation().getFile() = f }
+
+    /**
+     * Holds if `imp` is a wildcard import — `import "X";` with no named imports
+     * and no aliases. Brings every top-level decl of the imported file into
+     * scope under its original name.
+     */
+    private predicate isWildcardImport(ImportDirective imp) {
+      not exists(imp.getImportName(_)) and not exists(imp.getAlias(_))
+    }
+
+    /**
+     * Holds if `imp` is a module-alias import — `import "X" as N;` or
+     * `import * as N from "X";`. Has aliases but no named imports.
+     * Bare `Foo` does NOT resolve through these; use `qualifiedImportedDeclaration`.
+     */
+    private predicate isModuleAliasImport(ImportDirective imp) {
+      not exists(imp.getImportName(_)) and exists(imp.getAlias(_))
+    }
+
+    /**
+     * Gets a top-level declaration in a file directly imported by `callerFile`,
+     * brought into scope under the (possibly renamed) name `name`.
+     *
+     * Bare-identifier resolution should consult this. Module-alias imports
+     * (`import * as N from "X"`) are NOT included — those are accessible only
+     * via `qualifiedImportedDeclaration`.
+     */
+    AstNode importedDeclaration(SourceFile callerFile, string name) {
+      exists(ImportDirective imp, SourceFile importedFile |
+        enclosingFile(imp) = callerFile and
+        importedFile = sourceFileOf(imp.getResolvedFile()) and
+        result = topLevelDeclByName(importedFile, name)
+      |
+        // Wildcard: `name` matches the decl's declared name.
+        isWildcardImport(imp)
+        or
+        // Selective: `name` matches one of the listed import names.
+        // Note: aliases (`{A as Z}`) are not yet pairing-checked, so a renamed
+        // import is reachable under its original name here. The `as`-rename
+        // local name is also exposed via the next disjunct.
+        name = imp.getImportName(_).getValue()
+        or
+        // Selective with alias: `name` is the local alias (`Z` in `{A as Z}`).
+        // The decl's actual name is matched up via `topLevelDeclByName`, so
+        // this over-approximates if the user mixes renamed and bare items —
+        // see the v1-limitation note on the `Imports` module.
+        exists(int i |
+          name = imp.getAlias(i).getValue() and
+          result = topLevelDeclByName(importedFile, imp.getImportName(i).getValue())
+        )
+      )
+    }
+
+    /**
+     * Gets a top-level declaration accessible via a module-alias import
+     * (`import * as N from "X";` or `import "X" as N;`). The `qualifier` is
+     * the module's local name (`N`); `name` is the underlying decl's name.
+     */
+    AstNode qualifiedImportedDeclaration(SourceFile callerFile, string qualifier, string name) {
+      exists(ImportDirective imp, SourceFile importedFile |
+        enclosingFile(imp) = callerFile and
+        importedFile = sourceFileOf(imp.getResolvedFile()) and
+        isModuleAliasImport(imp) and
+        qualifier = imp.getAlias(_).getValue() and
+        result = topLevelDeclByName(importedFile, name)
+      )
+    }
+
+    /**
+     * Coarse static-type oracle: returns the leaf identifier(s) of `receiver`'s
+     * declared type, when that type is a user-defined type (contract /
+     * interface / library / struct / etc.). Used by the using-for and
+     * external-call disjuncts of `resolveCallTarget` (Phase 3).
+     *
+     * `receiver` is `AstNode` rather than `Expression` because Solidity's
+     * grammar emits both `IdentifierExpression` and bare `Identifier` token
+     * receivers depending on context (e.g. the object of a `MemberExpression`
+     * is often a bare token). Both shapes resolve through `identifierOf`.
+     *
+     * Three sources of type information:
+     *   1. Identifier (wrapped or bare) referring to a typed local, parameter,
+     *      or state variable — read the leaf identifier of the declaration's
+     *      `TypeName`.
+     *   2. `TypeCastExpression` (e.g. `IERC20(addr)`) — leaf identifier of
+     *      the cast target type.
+     *   3. `CallExpression` whose callee identifier resolves to a contract /
+     *      interface / library — the contract's name (covers `IERC20(addr)`
+     *      when parsed as a function call rather than a type cast).
+     *
+     * Multi-result on purpose for compound types (`mapping(K=>V)`); callers
+     * should handle multiple type names. Returns no result when the receiver
+     * type is not statically known.
+     */
+    string staticTypeName(AstNode receiver) {
+      // Case 1: identifier (wrapped or bare) resolving to a typed declaration.
+      exists(AstNode decl, Identifier id |
+        id = identifierOf(receiver) and
+        (decl = resolveLocal(id) or decl = resolveStateVar(id))
+      |
+        result = typeLeafIdentifier(declTypeNode(decl))
+      )
+      or
+      // Case 2: explicit type cast — leaf identifier of the target type.
+      result = typeLeafIdentifier(receiver.(TypeCastExpression).getType())
+      or
+      // Case 3: call whose callee is a contract-like name (`IERC20(addr)`
+      // parsed as a function call). Allow one level of wrapper descent because
+      // the grammar emits a generic `expression` node around primary
+      // expressions in many positions (notably the receiver of a member call).
+      exists(CallExpression ce, IdentifierExpression callee, AstNode contract, string calleeName |
+        (receiver = ce or ce = astDirectChild(receiver)) and
+        ce.getFunction() = callee and
+        calleeName = callee.getIdentifier().getValue() and
+        (
+          contract = resolveFileMember(callee.getIdentifier())
+          or
+          contract = importedDeclaration(enclosingFile(ce), calleeName)
+        ) and
+        isContractLike(contract) and
+        result = contractLikeName(contract)
+      )
+    }
+
+    /**
+     * Gets the underlying `Identifier` of `e`, whether `e` is a wrapped
+     * `IdentifierExpression` or a bare `Identifier` token used in expression
+     * position.
+     */
+    private Identifier identifierOf(AstNode e) {
+      result = e.(IdentifierExpression).getIdentifier()
+      or
+      result = e.(Identifier)
+    }
+
+    /**
+     * Gets the type-bearing AST node of a typed declaration. For each kind of
+     * `decl` the relevant `getType()` returns the declaration's type subtree
+     * (typically a `TypeName`).
+     */
+    private AstNode declTypeNode(AstNode decl) {
+      result = decl.(VariableDeclaration).getType()
+      or
+      result = decl.(Parameter).getType()
+      or
+      result = decl.(StateVariableDeclaration).getType()
+      or
+      result = decl.(ConstantVariableDeclaration).getType()
+    }
+
+    /**
+     * Gets the value of any `Identifier` inside `typeNode`. Walks the subtree
+     * because a `TypeName` for `Foo[]` or `mapping(address => Foo)` nests its
+     * leaf identifiers below intermediate grammar nodes.
+     *
+     * Uses the dbscheme's `solidity_ast_node_parent` relation directly because
+     * several QL wrappers (notably `TypeName`) override `getAChild()` to
+     * surface only named fields and elide unnamed children like
+     * `user_defined_type` — those overrides hide the very identifier we need.
+     */
+    private string typeLeafIdentifier(AstNode typeNode) {
+      exists(Identifier id |
+        id = astDescendantOrSelf(typeNode) and
+        result = id.getValue()
+      )
+    }
+
+    /** Reflexive-transitive descendants of `n` over the raw AST parent table. */
+    private AstNode astDescendantOrSelf(AstNode n) {
+      result = n
+      or
+      exists(AstNode child |
+        child = astDirectChild(n) and
+        result = astDescendantOrSelf(child)
+      )
+    }
+
+    /**
+     * Direct AST child via the underlying tree-sitter `getAFieldOrChild()`.
+     * The wrapper `getAChild()` predicates on several QL classes (e.g. `TypeName`)
+     * elide unnamed children like `user_defined_type`; this dropdown sees them.
+     */
+    private AstNode astDirectChild(AstNode parent) {
+      InternalAst::toTreeSitter(result) = InternalAst::toTreeSitter(parent).getAFieldOrChild()
+    }
   }
 }
