@@ -241,9 +241,21 @@ module SolidityDataFlow implements InputSig<Location> {
   }
 
   predicate isArgumentNode(ArgumentNode n, DataFlowCall call, ArgumentPosition pos) {
-    exists(CallArgument ca |
-      call.getArgument(pos) = ca and ca.getAChild() = n.getExpr()
+    // Ordinary positional argument. For a using-for call, the explicit
+    // arguments shift up by one to make room for the receiver at position 0.
+    exists(CallArgument ca, int sourcePos |
+      call.getArgument(sourcePos) = ca and ca.getAChild() = n.getExpr()
+    |
+      not NameResolution::Imports::usingForCall(call, _) and pos = sourcePos
+      or
+      NameResolution::Imports::usingForCall(call, _) and pos = sourcePos + 1
     )
+    or
+    // Using-for: receiver `y` of `y.foo(args)` becomes the implicit
+    // position-0 argument of `Lib.foo(y, args)`.
+    NameResolution::Imports::usingForCall(call, _) and
+    pos = 0 and
+    n.getExpr() = NameResolution::Imports::usingForReceiver(call)
   }
 
   // ---- Call graph --------------------------------------------------------

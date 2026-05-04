@@ -10,6 +10,7 @@
 
 private import codeql.Solidity
 private import codeql.Locations
+private import codeql.NameResolution
 
 /**
  * Holds if `id` is a bare `Identifier` token used in a value-producing
@@ -152,11 +153,22 @@ class PostUpdateNode extends Node, MkPostUpdateNode {
  *
  * The wrapped expression is the value being passed; its enclosing
  * `CallArgument` and `CallExpression` provide the call context.
+ *
+ * Also includes the receiver of a `using-for` call (`y` in `y.foo(args)`
+ * where `using Lib for T;` is in scope and `y` has type `T`). Solidity
+ * desugars these to `Lib.foo(y, args)`, and the dataflow framework needs
+ * `y` to appear as a real `ArgumentNode` for the position-0 mapping in
+ * `isArgumentNode` to type-check.
  */
 class ArgumentNode extends ExprNode {
   ArgumentNode() {
     exists(CallExpression ce, CallArgument ca |
       ce.getArgument(_) = ca and ca.getAChild() = this.getExpr()
+    )
+    or
+    exists(CallExpression ce |
+      NameResolution::Imports::usingForCall(ce, _) and
+      this.getExpr() = NameResolution::Imports::usingForReceiver(ce)
     )
   }
 }
