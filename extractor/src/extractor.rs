@@ -2,12 +2,17 @@ use clap::Args;
 use codeql_extractor::{diagnostics, extractor, file_paths, node_types, trap};
 use foundry_compilers::{Graph, ProjectPathsConfig};
 use foundry_compilers::artifacts::remappings::Remapping;
-use foundry_compilers::compilers::multi::MultiCompilerParser;
+use foundry_compilers::compilers::multi::{MultiCompilerParsedSource, MultiCompilerParser};
 use rayon::prelude::*;
 use std::fs;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use tree_sitter::Language;
+
+/// One row of `solidity_import_resolution(importer, source_string, resolved)`.
+/// `source_string` is the raw path text from the import statement, unquoted —
+/// the QL accessor strips quotes from the AST token before joining.
+type ImportResolution = (PathBuf, String, PathBuf);
 
 #[derive(Args)]
 pub struct Options {
@@ -103,11 +108,15 @@ pub fn run(options: Options) -> std::io::Result<()> {
 
     // Get the source root from current working directory (set by CodeQL)
     let source_root = std::env::current_dir().ok();
-    
-    // Attempt to discover and resolve dependencies using foundry-compilers
-    let all_files = discover_dependencies(&initial_files, &diagnostics, source_root.as_ref())?;
+
+    // Attempt to discover and resolve dependencies using foundry-compilers.
+    // Also computes per-import resolutions (importer file, raw import path, resolved file)
+    // for the QL `ImportDirective.getResolvedFile()` accessor.
+    let (all_files, import_resolutions) =
+        discover_dependencies(&initial_files, &diagnostics, source_root.as_ref())?;
 
     tracing::info!("Total files after dependency resolution: {}", all_files.len());
+    tracing::info!("Resolved imports: {}", import_resolutions.len());
 
     // Extract all discovered files. Per-file failures are logged as diagnostics
     // and skipped so a single bad file doesn't abort the whole extraction.
@@ -148,9 +157,26 @@ pub fn run(options: Options) -> std::io::Result<()> {
         tracing::warn!("{} of {} files failed to extract", failed, all_files.len());
     }
 
+    // Side-trap carrying the empty-location placeholder plus the
+    // `solidity_import_resolution` rows. File labels are content-addressed via
+    // `populate_file`, so the labels emitted here line up with the per-file traps.
     let path = PathBuf::from("extras");
     let mut trap_writer = trap::Writer::new();
     extractor::populate_empty_location(&mut trap_writer);
+    for (importer, source_string, resolved) in &import_resolutions {
+        let importer_label =
+            extractor::populate_file(&mut trap_writer, importer, path_transformer.as_ref());
+        let resolved_label =
+            extractor::populate_file(&mut trap_writer, resolved, path_transformer.as_ref());
+        trap_writer.add_tuple(
+            "solidity_import_resolution",
+            vec![
+                trap::Arg::Label(importer_label),
+                trap::Arg::String(source_string.clone()),
+                trap::Arg::Label(resolved_label),
+            ],
+        );
+    }
     let res = write_trap(
         trap_dir,
         path,
@@ -257,16 +283,17 @@ impl ProjectLayout {
 }
 
 /// Discovers all dependencies for the given Solidity files using foundry-compilers
+/// and computes the per-import resolution mapping for the QL accessor.
 fn discover_dependencies(
     initial_files: &[PathBuf],
     diagnostics: &diagnostics::DiagnosticLoggers,
     source_root: Option<&PathBuf>,
-) -> std::io::Result<Vec<PathBuf>> {
+) -> std::io::Result<(Vec<PathBuf>, Vec<ImportResolution>)> {
     let mut diagnostics_writer = diagnostics.logger();
 
     let Some(root) = source_root else {
         tracing::info!("No source root from current working directory; using initial file list");
-        return Ok(initial_files.to_vec());
+        return Ok((initial_files.to_vec(), Vec::new()));
     };
 
     let layout = ProjectLayout::detect(root);
@@ -277,9 +304,14 @@ fn discover_dependencies(
     );
 
     match try_resolve_with_foundry(root, layout) {
-        Ok(resolved_files) => {
+        Ok((resolved_files, resolutions)) => {
             let count = resolved_files.len();
-            tracing::info!("Resolved {} files using {} layout", count, layout.name());
+            tracing::info!(
+                "Resolved {} files and {} imports using {} layout",
+                count,
+                resolutions.len(),
+                layout.name()
+            );
             diagnostics_writer.write(
                 diagnostics_writer
                     .new_entry(
@@ -296,7 +328,7 @@ fn discover_dependencies(
                     )
                     .severity(diagnostics::Severity::Note),
             );
-            Ok(resolved_files)
+            Ok((resolved_files, resolutions))
         }
         Err(e) => {
             tracing::warn!(
@@ -322,7 +354,7 @@ fn discover_dependencies(
                     )
                     .severity(diagnostics::Severity::Warning),
             );
-            Ok(initial_files.to_vec())
+            Ok((initial_files.to_vec(), Vec::new()))
         }
     }
 }
@@ -401,11 +433,13 @@ fn load_remappings_txt(root: &Path) -> std::io::Result<Vec<Remapping>> {
     Ok(remappings)
 }
 
-/// Try to resolve dependencies using foundry-compilers
+/// Try to resolve dependencies using foundry-compilers. Returns the list of
+/// source files in the dependency closure together with the per-import
+/// resolution mapping used by `ImportDirective.getResolvedFile()` in QL.
 fn try_resolve_with_foundry(
     root: &Path,
     layout: ProjectLayout,
-) -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
+) -> Result<(Vec<PathBuf>, Vec<ImportResolution>), Box<dyn std::error::Error>> {
     let foundry_config = if matches!(layout, ProjectLayout::Foundry) {
         parse_foundry_toml(root).unwrap_or_default()
     } else {
@@ -455,5 +489,41 @@ fn try_resolve_with_foundry(
 
     let graph: Graph<MultiCompilerParser> = Graph::resolve(&paths)?;
 
-    Ok(graph.files().keys().cloned().collect())
+    let files: Vec<PathBuf> = graph.files().keys().cloned().collect();
+    let resolutions = collect_import_resolutions(&graph, &paths);
+
+    Ok((files, resolutions))
+}
+
+/// Walks every node in the graph, pulls the parsed Solidity imports, and
+/// resolves each one against the project's remappings/lib paths. Imports that
+/// fail resolution are logged at debug and dropped — the QL accessor returns
+/// no result for them.
+fn collect_import_resolutions(
+    graph: &Graph<MultiCompilerParser>,
+    paths: &ProjectPathsConfig,
+) -> Vec<ImportResolution> {
+    let mut out = Vec::new();
+    for node in &graph.nodes {
+        let file = node.path();
+        let MultiCompilerParsedSource::Solc(sol) = &node.data else { continue };
+        let cwd = file.parent().unwrap_or(file);
+        for spanned in &sol.imports {
+            let raw = spanned.data.path();
+            match paths.resolve_import(cwd, raw) {
+                Ok(resolved) => {
+                    out.push((file.to_path_buf(), raw.to_string_lossy().into_owned(), resolved));
+                }
+                Err(e) => {
+                    tracing::debug!(
+                        "Unresolved import {:?} in {}: {}",
+                        raw,
+                        file.display(),
+                        e
+                    );
+                }
+            }
+        }
+    }
+    out
 }
