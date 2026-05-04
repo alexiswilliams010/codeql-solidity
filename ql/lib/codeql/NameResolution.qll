@@ -359,6 +359,52 @@ module NameResolution {
         result.(ModifierDefinition).getName().(Identifier).getValue() = methodName
       )
     )
+    or
+    // External call with statically-known receiver type (`helper.bump(x)`,
+    // `IGreeter(addr).greet(name)`): `staticTypeName` resolves the receiver's
+    // type to a contract / interface name; we then look up the method inside
+    // that declaration plus its inheritance chain. The `topLevelDeclByName`
+    // and `importedDeclaration` helpers already filter by name so no extra
+    // contract-name check is needed.
+    exists(
+      MemberExpression callee, AstNode receiver, string typeName,
+      AstNode contractLike, string methodName
+    |
+      (callee = ce.getFunction() or callee = astDirectChild(ce.getFunction())) and
+      receiver = callee.getObject() and
+      typeName = Imports::staticTypeName(receiver) and
+      methodName = callee.getProperty().getValue() and
+      (
+        contractLike = Imports::topLevelDeclByName(enclosingFile(ce), typeName)
+        or
+        contractLike = Imports::importedDeclaration(enclosingFile(ce), typeName)
+      ) and
+      isContractLike(contractLike) and
+      enclosingContractLike(result) = parentOrSelf(contractLike) and
+      (
+        result.(FunctionDefinition).getName().getValue() = methodName
+        or
+        result.(ModifierDefinition).getName().(Identifier).getValue() = methodName
+      )
+    )
+    or
+    // Free function imported from another file (`clamp(x, 0, 100)` where
+    // `clamp` was brought in by `import {clamp} from "./Helpers.sol";`). The
+    // bare-identifier callee did not resolve through the contract chain or
+    // the same-file file scope; fall back to imports.
+    exists(IdentifierExpression callee, string name |
+      ce.getFunction() = callee and
+      name = callee.getIdentifier().getValue() and
+      result = Imports::importedDeclaration(enclosingFile(ce), name) and
+      result instanceof FunctionDefinition
+    )
+    or
+    // Library via using-for (`y.foo(args)` where `using Lib for T;` is in
+    // scope and `y` has type T or T = *). The marker predicate
+    // `Imports::usingForCall` is what Phase 4's dataflow reads to inject the
+    // receiver as a position-0 argument; resolution here just returns the
+    // library function so the existing call-graph machinery wires through.
+    Imports::usingForCall(ce, result)
   }
 
   // ==========================================================================
@@ -587,20 +633,116 @@ module NameResolution {
       result = decl.(ConstantVariableDeclaration).getType()
     }
 
+    // ------------------------------------------------------------------------
+    // Using-for resolution
+    // ------------------------------------------------------------------------
+
     /**
-     * Gets the value of any `Identifier` inside `typeNode`. Walks the subtree
-     * because a `TypeName` for `Foo[]` or `mapping(address => Foo)` nests its
-     * leaf identifiers below intermediate grammar nodes.
+     * Holds if the using-directive `ud` is in scope at the call site `ce` —
+     * either declared at file scope of `ce`'s file, or inside `ce`'s
+     * enclosing contract / interface / library.
+     */
+    private predicate usingDirectiveInScope(CallExpression ce, UsingDirective ud) {
+      ud.getParent() = enclosingFile(ce)
+      or
+      ud.getParent*() = enclosingContractLike(ce)
+    }
+
+    /** Holds if `ud` is `using Lib for *;` (matches any receiver type). */
+    private predicate usingDirectiveIsWildcard(UsingDirective ud) {
+      ud.getSource() instanceof AnySourceType
+    }
+
+    /**
+     * Gets the canonical name of the type that `ud` attaches its library to
+     * (`uint`, `address`, `Foo`, ...). Returns no result for the wildcard
+     * form (use `usingDirectiveIsWildcard` for that).
+     */
+    private string usingDirectiveTargetType(UsingDirective ud) {
+      result = typeLeafIdentifier(ud.getSource())
+    }
+
+    /**
+     * Gets the library AST node attached by the using-directive `ud`, looked
+     * up from the using-directive's enclosing source file. Only handles the
+     * single-library form `using LibraryName for T;` — the multi-target form
+     * `using {f1, f2} for T;` is a follow-up (it references functions, not a
+     * library, so resolution there needs a different shape).
+     */
+    private AstNode usingDirectiveLibrary(UsingDirective ud) {
+      exists(AstNode child, Identifier libId, SourceFile udFile, string libName |
+        child = astDirectChild(ud) and
+        libId = astDescendantOrSelf(child) and
+        libName = libId.getValue() and
+        udFile = enclosingFile(ud) and
+        (
+          result = topLevelDeclByName(udFile, libName)
+          or
+          result = importedDeclaration(udFile, libName)
+        ) and
+        result instanceof LibraryDeclaration
+      )
+    }
+
+    /**
+     * Holds if `ce` is a member call `y.foo(args)` resolved via a using-for
+     * directive to the library function `fd`. Phase 4's dataflow uses this
+     * marker to inject the receiver `y` as an implicit position-0 argument.
+     */
+    predicate usingForCall(CallExpression ce, FunctionDefinition fd) {
+      exists(
+        MemberExpression callee, AstNode receiver, string typeName,
+        UsingDirective ud, AstNode lib, string methodName
+      |
+        (callee = ce.getFunction() or callee = astDirectChild(ce.getFunction())) and
+        receiver = callee.getObject() and
+        typeName = staticTypeName(receiver) and
+        methodName = callee.getProperty().getValue() and
+        usingDirectiveInScope(ce, ud) and
+        (usingDirectiveIsWildcard(ud) or usingDirectiveTargetType(ud) = typeName) and
+        lib = usingDirectiveLibrary(ud) and
+        enclosingContractLike(fd) = parentOrSelf(lib) and
+        fd.getName().getValue() = methodName
+      )
+    }
+
+    /**
+     * Gets the receiver expression of a using-for call (`y` in `y.foo(args)`).
+     * Phase 4 uses this to wire `y` as the position-0 argument.
+     */
+    AstNode usingForReceiver(CallExpression ce) {
+      exists(MemberExpression callee |
+        (callee = ce.getFunction() or callee = astDirectChild(ce.getFunction())) and
+        result = callee.getObject() and
+        usingForCall(ce, _)
+      )
+    }
+
+    /**
+     * Gets the canonical leaf-name of `typeNode`. Walks the subtree because a
+     * `TypeName` for `Foo[]` or `mapping(address => Foo)` nests its leaf names
+     * below intermediate grammar nodes.
+     *
+     * Two leaf kinds are recognised:
+     *   - `Identifier` — for user-defined types like `Foo`, `Foo.Bar`,
+     *     `IERC20`. The identifier text is the type name.
+     *   - `PrimitiveType` token — for `uint`, `address`, `bool`, ...
+     *     The token's value is the type name.
      *
      * Uses the dbscheme's `solidity_ast_node_parent` relation directly because
      * several QL wrappers (notably `TypeName`) override `getAChild()` to
-     * surface only named fields and elide unnamed children like
-     * `user_defined_type` — those overrides hide the very identifier we need.
+     * surface only named fields and elide unnamed children — those overrides
+     * hide the very leaf we need.
      */
     private string typeLeafIdentifier(AstNode typeNode) {
       exists(Identifier id |
         id = astDescendantOrSelf(typeNode) and
         result = id.getValue()
+      )
+      or
+      exists(PrimitiveType pt |
+        pt = astDescendantOrSelf(typeNode) and
+        result = pt.getValue()
       )
     }
 
