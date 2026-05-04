@@ -75,29 +75,83 @@ module NameResolution {
   /** Gets the source file containing `n`. */
   SourceFile enclosingFile(AstNode n) { result = n.getParent*() }
 
+  /**
+   * Direct AST child of `parent` via the underlying tree-sitter
+   * `getAFieldOrChild()`. Bypasses restrictive `getAChild()` overrides on
+   * QL wrapper classes (notably `TypeName`) that elide unnamed children.
+   */
+  AstNode astDirectChild(AstNode parent) {
+    InternalAst::toTreeSitter(result) = InternalAst::toTreeSitter(parent).getAFieldOrChild()
+  }
+
+  /** Reflexive-transitive AST descendants of `n` via `astDirectChild`. */
+  AstNode astDescendantOrSelf(AstNode n) {
+    result = n
+    or
+    exists(AstNode child |
+      child = astDirectChild(n) and
+      result = astDescendantOrSelf(child)
+    )
+  }
+
   // ==========================================================================
   // Inheritance
   // ==========================================================================
 
   /**
-   * Gets a directly-inherited contract-like declaration of `c`, by name match
-   * against any `ContractDeclaration` / `InterfaceDeclaration` /
-   * `LibraryDeclaration` in the database.
+   * Gets a directly-inherited contract-like declaration of `c`. Looks up the
+   * inheritance specifier's ancestor name in two scopes:
+   *   1. Same source file as `c` — covers in-file inheritance.
+   *   2. Files directly imported by `c`'s source file (via the extractor's
+   *      `ImportDirective.getResolvedFile()`).
    *
-   * NOTE: Cross-file import resolution is not yet implemented, so this can
-   * over-match on cousin-named contracts in unrelated files. Tighten in a
-   * future revision by intersecting with `ImportDirective`-reachable files.
+   * The grammar wraps the ancestor name in a `user_defined_type` node
+   * containing one or more `Identifier` tokens (an `_identifier_path`).
+   * For unqualified inheritance (`is ERC20`) the path has a single identifier,
+   * which we extract via `inheritanceAncestorName`. Qualified inheritance
+   * (`is N.Foo` after `import * as N from "X"`) is not handled here — those
+   * produce multi-identifier paths and need a separate disjunct keyed off
+   * `Imports::qualifiedImportedDeclaration`. Tracked as a follow-up.
    */
   AstNode directParent(AstNode c) {
     isContractLike(c) and
-    exists(InheritanceSpecifier is, Identifier ancestorName, string name |
+    exists(InheritanceSpecifier is, string name, SourceFile childFile |
       is.getParent*() = c and
-      ancestorName = is.getAncestor() and
-      name = ancestorName.getValue() and
+      name = inheritanceAncestorName(is) and
       result != c and
       isContractLike(result) and
-      contractLikeName(result) = name
+      contractLikeName(result) = name and
+      childFile = enclosingFile(c)
+    |
+      // 1. Same-file parent.
+      enclosingFile(result) = childFile
+      or
+      // 2. Cross-file via direct imports.
+      result = Imports::importedDeclaration(childFile, name)
     )
+  }
+
+  /**
+   * Gets the (single) identifier name of an unqualified inheritance specifier.
+   * Returns no result for qualified (`N.Foo`) or otherwise multi-identifier
+   * ancestor paths — those are handled separately (see `directParent` doc).
+   */
+  private string inheritanceAncestorName(InheritanceSpecifier is) {
+    exists(AstNode ancestor, Identifier id |
+      ancestor = is.getAncestor() and
+      id = uniqueIdentifierUnder(ancestor) and
+      result = id.getValue()
+    )
+  }
+
+  /**
+   * Gets `n`'s unique `Identifier` descendant, or no result if there are zero
+   * or more than one. Used to constrain matches to single-identifier ancestor
+   * paths (rejecting `N.Foo` in this version).
+   */
+  private Identifier uniqueIdentifierUnder(AstNode n) {
+    result = astDescendantOrSelf(n) and
+    count(Identifier id | id = astDescendantOrSelf(n)) = 1
   }
 
   /** Gets a transitively-inherited contract-like declaration of `c`, including `c` itself. */
@@ -508,23 +562,5 @@ module NameResolution {
       )
     }
 
-    /** Reflexive-transitive descendants of `n` over the raw AST parent table. */
-    private AstNode astDescendantOrSelf(AstNode n) {
-      result = n
-      or
-      exists(AstNode child |
-        child = astDirectChild(n) and
-        result = astDescendantOrSelf(child)
-      )
-    }
-
-    /**
-     * Direct AST child via the underlying tree-sitter `getAFieldOrChild()`.
-     * The wrapper `getAChild()` predicates on several QL classes (e.g. `TypeName`)
-     * elide unnamed children like `user_defined_type`; this dropdown sees them.
-     */
-    private AstNode astDirectChild(AstNode parent) {
-      InternalAst::toTreeSitter(result) = InternalAst::toTreeSitter(parent).getAFieldOrChild()
-    }
   }
 }
