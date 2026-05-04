@@ -1298,3 +1298,11 @@ solidity_ast_node_parent(
   int parent_index: int ref
 );
 
+
+/*- Extractor-supplied relations (not derived from the tree-sitter grammar) -*/
+
+solidity_import_resolution(
+  int importer: @file ref,
+  string source_string: string ref,
+  int resolved: @file ref
+);
