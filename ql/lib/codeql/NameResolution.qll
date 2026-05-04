@@ -293,10 +293,18 @@ module NameResolution {
   }
 
   /**
-   * Gets a callable that the given `CallExpression` may invoke. Resolves both
-   * internal calls (`foo(x)`) and `this.foo(x)` style calls; for external calls
-   * via member access on an unknown-typed receiver, falls back to name match
-   * within the caller's enclosing contract chain.
+   * Gets a callable that the given `CallExpression` may invoke. Resolves:
+   *   - Internal calls (`foo(x)`) and same-contract member calls
+   *     (`this.foo(x)`) via the caller's contract + inheritance chain.
+   *   - Direct library / contract / interface calls (`Lib.foo(x)`) where the
+   *     receiver name resolves to a contract-like declaration in the caller's
+   *     file scope or via a direct import. The method is then looked up in
+   *     that declaration plus its inheritance chain.
+   *
+   * For external calls on an unknown-typed receiver, the same-contract
+   * disjunct falls back to name-match within the caller's chain (imprecise
+   * but mirrors the pre-cross-file behavior — Phase 3c will tighten with
+   * the static-type oracle).
    */
   AstNode resolveCallTarget(CallExpression ce) {
     // Internal call: function is a bare identifier.
@@ -315,6 +323,40 @@ module NameResolution {
         result.(FunctionDefinition).getName().getValue() = name
         or
         result.(ModifierDefinition).getName().(Identifier).getValue() = name
+      )
+    )
+    or
+    // Direct library / contract member call (`Lib.foo(x)` / `IFoo.bar(x)`):
+    // the receiver is a bare contract-like name reachable via file scope or
+    // a direct import. Look up the method inside that declaration + its
+    // inheritance chain.
+    //
+    // Allows one level of `Expression` wrapper descent on both the function
+    // and the receiver, because the grammar wraps primary expressions in a
+    // generic `expression` node in many positions.
+    exists(
+      MemberExpression callee, AstNode receiverNode, Identifier receiverId,
+      AstNode contractLike, string methodName
+    |
+      (callee = ce.getFunction() or callee = astDirectChild(ce.getFunction())) and
+      receiverNode = callee.getObject() and
+      (
+        receiverId = receiverNode.(IdentifierExpression).getIdentifier()
+        or
+        receiverId = receiverNode.(Identifier)
+      ) and
+      methodName = callee.getProperty().getValue() and
+      (
+        contractLike = resolveFileMember(receiverId)
+        or
+        contractLike = Imports::importedDeclaration(enclosingFile(ce), receiverId.getValue())
+      ) and
+      isContractLike(contractLike) and
+      enclosingContractLike(result) = parentOrSelf(contractLike) and
+      (
+        result.(FunctionDefinition).getName().getValue() = methodName
+        or
+        result.(ModifierDefinition).getName().(Identifier).getValue() = methodName
       )
     )
   }
