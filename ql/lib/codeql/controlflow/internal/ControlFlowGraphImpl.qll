@@ -496,3 +496,107 @@ private class UpdateExpressionTree extends StandardPostOrderTree instanceof Upda
 }
 
 // TODO: Leaving Yul nodes out for now, to implement later
+
+// ============================================================================
+// Interprocedural CFG (additive, opt-in)
+// ============================================================================
+//
+// The shared `CfgImpl` is intra-procedural: per-tree `succ` predicates never
+// cross a `CfgScope`. Extending those would corrupt the basic-block / dominator
+// computations. Instead, we expose two SEPARATE additive predicates that
+// detectors can OR into their successor walks when they want interprocedural
+// reasoning. The intra-procedural CFG itself is unchanged, so existing
+// detectors are unaffected.
+//
+// Edges are anchored at the resolved callee (via `NameResolution::resolveCallTarget`),
+// which inherits the cross-file resolution from Phase 3.
+
+private import codeql.NameResolution
+
+/**
+ * Holds if there is an interprocedural CFG edge from `pred` to `succ`:
+ *   - `pred` is the CFG node of the last AST node evaluated in the call's
+ *     argument chain (or the function expression if the call has no args).
+ *   - `succ` is the CFG node at the entry of the resolved callee's body.
+ */
+predicate interproceduralCallEdge(Node pred, Node succ) {
+  exists(CallExpression call, AstNode callee, AstNode predAst, AstNode succAst |
+    callee = NameResolution::resolveCallTarget(call) and
+    pred.getAstNode() = predAst and
+    succ.getAstNode() = succAst and
+    callPredAst(call, predAst) and
+    calleeBodyFirst(callee, succAst)
+  )
+}
+
+/**
+ * Holds if there is an interprocedural CFG return edge from `pred` (the last
+ * AST node executed in the callee body — typically a `ReturnStatement` or
+ * fall-off-end) to `succ` (the CallExpression node, which dataflow already
+ * treats as the result of the call).
+ */
+predicate interproceduralReturnEdge(Node pred, Node succ) {
+  exists(CallExpression call, AstNode callee, AstNode predAst |
+    callee = NameResolution::resolveCallTarget(call) and
+    calleeBodyExit(callee, predAst) and
+    pred.getAstNode() = predAst and
+    succ.getAstNode() = call
+  )
+}
+
+/**
+ * Gets the AST node that the call's predecessor edge starts from: the last
+ * AST node of the highest-indexed argument's CFG, or the function expression's
+ * last node if the call has no arguments.
+ */
+private predicate callPredAst(CallExpression call, AstNode predAst) {
+  exists(int n |
+    n = max(int i | exists(call.getArgument(i))) and
+    last(call.getArgument(n), predAst, _)
+  )
+  or
+  not exists(call.getArgument(_)) and
+  last(call.getFunction(), predAst, _)
+}
+
+/** Holds if `entry` is the first AST node executed in the body of `callee`. */
+private predicate calleeBodyFirst(AstNode callee, AstNode entry) {
+  first(callee.(FunctionDefinition).getBody(), entry)
+  or
+  first(callee.(ModifierDefinition).getBody(), entry)
+  or
+  first(callee.(ConstructorDefinition).getBody(), entry)
+  or
+  first(callee.(FallbackReceiveDefinition).getBody(), entry)
+}
+
+/**
+ * Holds if `exitAst` is a possible last AST node executed in the body of
+ * `callee` — covers both explicit `return` statements and falling off the end.
+ */
+private predicate calleeBodyExit(AstNode callee, AstNode exitAst) {
+  last(callee.(FunctionDefinition).getBody(), exitAst, _)
+  or
+  last(callee.(ModifierDefinition).getBody(), exitAst, _)
+  or
+  last(callee.(ConstructorDefinition).getBody(), exitAst, _)
+  or
+  last(callee.(FallbackReceiveDefinition).getBody(), exitAst, _)
+}
+
+/**
+ * Augmented successor relation: an OR of the intra-procedural CFG and the
+ * interprocedural call/return edges. Detectors that want cross-function
+ * reachability can use this in place of `Node.getASuccessor`.
+ *
+ * Recursion / cycles: CodeQL transitive closures handle cycles natively,
+ * so direct or indirect recursion is just a fixpoint over this relation.
+ * Detectors doing path-sensitive walks should bound depth themselves.
+ */
+predicate interproceduralSuccessor(Node pred, Node succ) {
+  succ = pred.getASuccessor()
+  or
+  interproceduralCallEdge(pred, succ)
+  or
+  interproceduralReturnEdge(pred, succ)
+}
