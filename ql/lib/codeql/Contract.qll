@@ -53,7 +53,7 @@ class ImportDirective extends TImportDirective, AstNode, AstNodeImpl {
 
   override AstNode getParent() { toTreeSitter(result) = node.getParent() }
 
-  override AstNode getAChild() { 
+  override AstNode getAChild() {
     toTreeSitter(result) = node.getAlias(_) or toTreeSitter(result) = node.getImportName(_) or toTreeSitter(result) = node.getSource()
   }
 
@@ -62,6 +62,21 @@ class ImportDirective extends TImportDirective, AstNode, AstNodeImpl {
   Identifier getImportName(int i) { toTreeSitter(result) = node.getImportName(i) }
 
   String getSource() { toTreeSitter(result) = node.getSource() }
+
+  /**
+   * Gets the file this import resolves to via the project's remappings/lib paths,
+   * as computed by the extractor's foundry-compilers post-pass. Returns no result
+   * for imports that couldn't be resolved (broken remappings, missing files, etc.).
+   */
+  File getResolvedFile() {
+    exists(string srcStr |
+      solidity_import_resolution(this.getLocation().getFile(), srcStr, result) and
+      // The relation stores the path exactly as written in the source (no quotes);
+      // String.getValue() returns the full token text including quotes, so strip
+      // one leading/trailing single- or double-quote.
+      this.getSource().getValue().regexpReplaceAll("^[\"']|[\"']$", "") = srcStr
+    )
+  }
 
   override string toString() { result = toTreeSitter(this).toString() }
 
